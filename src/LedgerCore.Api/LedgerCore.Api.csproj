@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+  <ItemGroup>
+    <ProjectReference Include="..\LedgerCore.Application\LedgerCore.Application.csproj" />
+    <ProjectReference Include="..\LedgerCore.Infrastructure\LedgerCore.Infrastructure.csproj" />
+  </ItemGroup>
+</Project>
