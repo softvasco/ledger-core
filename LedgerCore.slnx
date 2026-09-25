@@ -5,4 +5,7 @@
     <Project Path="src/LedgerCore.Domain/LedgerCore.Domain.csproj" />
     <Project Path="src/LedgerCore.Infrastructure/LedgerCore.Infrastructure.csproj" />
   </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/LedgerCore.Domain.Tests/LedgerCore.Domain.Tests.csproj" />
+  </Folder>
 </Solution>
