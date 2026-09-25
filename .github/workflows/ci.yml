@@ -22,12 +22,12 @@ jobs:
           global-json-file: global.json
       - run: dotnet restore
       - run: dotnet build --no-restore -c Release -warnaserror
-      - run: dotnet test --no-build -c Release --collect:"XPlat Code Coverage" --results-directory ./coverage
+      - run: dotnet test --no-build -c Release --coverage --coverage-output-format cobertura --results-directory ./coverage
       - name: coverage report
-        if: hashFiles('coverage/**/coverage.cobertura.xml') != ''
+        if: hashFiles('coverage/**/*.cobertura.xml') != ''
         uses: danielpalme/ReportGenerator-GitHub-Action@5
         with:
-          reports: coverage/**/coverage.cobertura.xml
+          reports: coverage/**/*.cobertura.xml
           targetdir: coverage/report
           reporttypes: MarkdownSummaryGithub;Cobertura
       - name: coverage summary
