@@ -42,7 +42,7 @@ flowchart LR
     infra --> bus[[Azure Service Bus]]
 ```
 
-The Domain project has no dependencies at all. Application talks to the outside world only through interfaces it owns, and Infrastructure implements them. Design decisions go in `docs/adr/` as they come up.
+The Domain project has no dependencies at all. Application talks to the outside world only through interfaces it owns, and Infrastructure implements them. Design decisions are in [docs/adr](docs/adr/README.md), starting with [why the ledger is event sourced](docs/adr/0002-event-sourcing-for-the-ledger.md).
 
 ## Quickstart
 
