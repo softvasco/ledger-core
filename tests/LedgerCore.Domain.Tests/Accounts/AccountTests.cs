@@ -87,5 +87,64 @@ public class AccountTests
         Assert.Throws<ArgumentOutOfRangeException>(() => account.Freeze((FreezeReason)42, _clock));
     }
 
+    [Fact]
+    public void Closing_an_open_account_raises_account_closed()
+    {
+        var account = OpenAccount();
+
+        account.Close(_clock);
+
+        Assert.Equal(AccountStatus.Closed, account.Status);
+        Assert.Equal(new AccountClosed(account.Id, Start), account.PendingEvents[^1]);
+    }
+
+    [Fact]
+    public void A_frozen_account_can_not_be_closed_until_it_is_unfrozen()
+    {
+        var account = OpenAccount();
+        account.Freeze(FreezeReason.CourtOrder, _clock);
+
+        Assert.Throws<AccountStateException>(() => account.Close(_clock));
+
+        account.Unfreeze(_clock);
+        account.Close(_clock);
+        Assert.Equal(AccountStatus.Closed, account.Status);
+    }
+
+    [Fact]
+    public void Nothing_changes_a_closed_account()
+    {
+        var account = OpenAccount();
+        account.Close(_clock);
+
+        Assert.Throws<AccountStateException>(() => account.Close(_clock));
+        Assert.Throws<AccountStateException>(() => account.Freeze(FreezeReason.Sanctions, _clock));
+        Assert.Throws<AccountStateException>(() => account.Unfreeze(_clock));
+    }
+
+    [Fact]
+    public void Replaying_the_history_gives_the_same_state_with_nothing_pending()
+    {
+        var original = OpenAccount();
+        original.Freeze(FreezeReason.SuspectedFraud, _clock);
+
+        var replayed = Account.FromHistory(original.PendingEvents);
+
+        Assert.Equal(original.Id, replayed.Id);
+        Assert.Equal(original.Iban, replayed.Iban);
+        Assert.Equal(AccountStatus.Frozen, replayed.Status);
+        Assert.Equal(FreezeReason.SuspectedFraud, replayed.FreezeReason);
+        Assert.Empty(replayed.PendingEvents);
+    }
+
+    [Fact]
+    public void History_must_start_with_the_account_being_opened()
+    {
+        var id = AccountId.New(_clock);
+
+        Assert.Throws<ArgumentException>(() => Account.FromHistory([]));
+        Assert.Throws<ArgumentException>(() => Account.FromHistory([new AccountClosed(id, Start)]));
+    }
+
     private Account OpenAccount() => Account.Open(AccountId.New(_clock), SomeIban, Currency.Eur, _clock);
 }

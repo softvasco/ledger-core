@@ -37,6 +37,29 @@ public sealed class Account
         return account;
     }
 
+    /// <summary>Rebuilds an account from its stored events. Nothing is pending afterwards.</summary>
+    public static Account FromHistory(IEnumerable<IDomainEvent> history)
+    {
+        ArgumentNullException.ThrowIfNull(history);
+
+        var account = new Account();
+        var first = true;
+        foreach (var @event in history)
+        {
+            if (first && @event is not AccountOpened)
+            {
+                throw new ArgumentException("An account's history must start with AccountOpened.", nameof(history));
+            }
+
+            account.Apply(@event);
+            first = false;
+        }
+
+        return first
+            ? throw new ArgumentException("An account's history can't be empty.", nameof(history))
+            : account;
+    }
+
     public void Freeze(FreezeReason reason, TimeProvider clock)
     {
         ArgumentNullException.ThrowIfNull(clock);
@@ -55,6 +78,15 @@ public sealed class Account
 
         EnsureStatus(AccountStatus.Frozen, "unfrozen");
         Raise(new AccountUnfrozen(Id, clock.GetUtcNow()));
+    }
+
+    // a frozen account has to be released first, so closing can't be used to get around a hold
+    public void Close(TimeProvider clock)
+    {
+        ArgumentNullException.ThrowIfNull(clock);
+
+        EnsureStatus(AccountStatus.Open, "closed");
+        Raise(new AccountClosed(Id, clock.GetUtcNow()));
     }
 
     private void EnsureStatus(AccountStatus expected, string action)
@@ -88,6 +120,9 @@ public sealed class Account
             case AccountUnfrozen:
                 Status = AccountStatus.Open;
                 FreezeReason = null;
+                break;
+            case AccountClosed:
+                Status = AccountStatus.Closed;
                 break;
             default:
                 throw new InvalidOperationException($"{@event.GetType().Name} does not belong to an account.");
