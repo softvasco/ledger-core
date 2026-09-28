@@ -33,5 +33,59 @@ public class AccountTests
         Assert.Equal(SomeIban, account.Iban);
     }
 
+    [Fact]
+    public void Freezing_records_the_reason_and_blocks_the_account()
+    {
+        var account = OpenAccount();
+        _clock.Advance(TimeSpan.FromHours(1));
+
+        account.Freeze(FreezeReason.SuspectedFraud, _clock);
+
+        Assert.Equal(AccountStatus.Frozen, account.Status);
+        Assert.Equal(FreezeReason.SuspectedFraud, account.FreezeReason);
+        Assert.Equal(
+            new AccountFrozen(account.Id, FreezeReason.SuspectedFraud, Start.AddHours(1)),
+            account.PendingEvents[^1]);
+    }
+
+    [Fact]
+    public void Unfreezing_reopens_the_account_and_clears_the_reason()
+    {
+        var account = OpenAccount();
+        account.Freeze(FreezeReason.CourtOrder, _clock);
+
+        account.Unfreeze(_clock);
+
+        Assert.Equal(AccountStatus.Open, account.Status);
+        Assert.Null(account.FreezeReason);
+        Assert.IsType<AccountUnfrozen>(account.PendingEvents[^1]);
+    }
+
+    [Fact]
+    public void An_account_can_not_be_frozen_twice()
+    {
+        var account = OpenAccount();
+        account.Freeze(FreezeReason.Sanctions, _clock);
+
+        Assert.Throws<AccountStateException>(() => account.Freeze(FreezeReason.CourtOrder, _clock));
+        Assert.Equal(2, account.PendingEvents.Count);
+    }
+
+    [Fact]
+    public void Only_a_frozen_account_can_be_unfrozen()
+    {
+        var account = OpenAccount();
+
+        Assert.Throws<AccountStateException>(() => account.Unfreeze(_clock));
+    }
+
+    [Fact]
+    public void Rejects_a_freeze_reason_outside_the_list()
+    {
+        var account = OpenAccount();
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => account.Freeze((FreezeReason)42, _clock));
+    }
+
     private Account OpenAccount() => Account.Open(AccountId.New(_clock), SomeIban, Currency.Eur, _clock);
 }
