@@ -5,15 +5,11 @@ using LedgerCore.Domain.Monetary;
 namespace LedgerCore.Domain.Accounts;
 
 /// <summary>A ledger account and its lifecycle. Every change is recorded as an event first and applied to the state from there.</summary>
-public sealed class Account
+public sealed class Account : AggregateRoot<AccountId>
 {
-    private readonly List<IDomainEvent> _pendingEvents = [];
-
     private Account()
     {
     }
-
-    public AccountId Id { get; private set; }
 
     public Iban Iban { get; private set; } = null!;
 
@@ -22,9 +18,6 @@ public sealed class Account
     public AccountStatus Status { get; private set; }
 
     public FreezeReason? FreezeReason { get; private set; }
-
-    /// <summary>Events raised since the account was loaded, in the order they happened.</summary>
-    public IReadOnlyList<IDomainEvent> PendingEvents => _pendingEvents;
 
     public static Account Open(AccountId id, Iban iban, Currency currency, TimeProvider clock)
     {
@@ -42,22 +35,15 @@ public sealed class Account
     {
         ArgumentNullException.ThrowIfNull(history);
 
-        var account = new Account();
-        var first = true;
-        foreach (var @event in history)
+        var events = history.ToArray();
+        if (events.Length == 0 || events[0] is not AccountOpened)
         {
-            if (first && @event is not AccountOpened)
-            {
-                throw new ArgumentException("An account's history must start with AccountOpened.", nameof(history));
-            }
-
-            account.Apply(@event);
-            first = false;
+            throw new ArgumentException("An account's history must start with AccountOpened.", nameof(history));
         }
 
-        return first
-            ? throw new ArgumentException("An account's history can't be empty.", nameof(history))
-            : account;
+        var account = new Account();
+        account.Replay(events);
+        return account;
     }
 
     public void Freeze(FreezeReason reason, TimeProvider clock)
@@ -97,15 +83,9 @@ public sealed class Account
         }
     }
 
-    private void Raise(IDomainEvent @event)
+    protected override void Apply(IDomainEvent domainEvent)
     {
-        Apply(@event);
-        _pendingEvents.Add(@event);
-    }
-
-    private void Apply(IDomainEvent @event)
-    {
-        switch (@event)
+        switch (domainEvent)
         {
             case AccountOpened opened:
                 Id = opened.AccountId;
@@ -125,7 +105,7 @@ public sealed class Account
                 Status = AccountStatus.Closed;
                 break;
             default:
-                throw new InvalidOperationException($"{@event.GetType().Name} does not belong to an account.");
+                throw new InvalidOperationException($"{domainEvent.GetType().Name} does not belong to an account.");
         }
     }
 }
