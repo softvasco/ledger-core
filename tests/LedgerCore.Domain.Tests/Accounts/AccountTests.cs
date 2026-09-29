@@ -135,6 +135,8 @@ public class AccountTests
         Assert.Equal(AccountStatus.Frozen, replayed.Status);
         Assert.Equal(FreezeReason.SuspectedFraud, replayed.FreezeReason);
         Assert.Empty(replayed.PendingEvents);
+        Assert.Equal(2, replayed.Version);
+        Assert.Equal(2, replayed.CommittedVersion);
     }
 
     [Fact]
