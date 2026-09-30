@@ -1,3 +1,4 @@
+using LedgerCore.Domain.Abstractions;
 using LedgerCore.Domain.Monetary;
 
 namespace LedgerCore.Domain.Ledger;
@@ -20,7 +21,7 @@ public sealed class JournalEntry
 
     public DateTimeOffset BookedAt { get; }
 
-    public static JournalEntry Book(JournalEntryId id, IEnumerable<Posting> postings, TimeProvider clock)
+    public static Result<JournalEntry> Book(JournalEntryId id, IEnumerable<Posting> postings, TimeProvider clock)
     {
         ArgumentNullException.ThrowIfNull(postings);
         ArgumentNullException.ThrowIfNull(clock);
@@ -32,7 +33,7 @@ public sealed class JournalEntry
         var lines = postings.ToArray();
         if (lines.Length < MinimumPostings)
         {
-            throw new ArgumentException("A journal entry needs at least one debit and one credit.", nameof(postings));
+            return Result.Failure<JournalEntry>(LedgerErrors.TooFewPostings(lines.Length));
         }
 
         // an FX trade is one entry with two currencies, and each currency has to balance on its own
@@ -42,11 +43,11 @@ public sealed class JournalEntry
             var credits = Total(currency, PostingSide.Credit, currency.Key);
             if (debits != credits)
             {
-                throw new UnbalancedEntryException(debits, credits);
+                return Result.Failure<JournalEntry>(LedgerErrors.Unbalanced(debits, credits));
             }
         }
 
-        return new JournalEntry(id, Array.AsReadOnly(lines), clock.GetUtcNow());
+        return Result.Success(new JournalEntry(id, Array.AsReadOnly(lines), clock.GetUtcNow()));
     }
 
     private static Money Total(IEnumerable<Posting> postings, PostingSide side, Currency currency) =>

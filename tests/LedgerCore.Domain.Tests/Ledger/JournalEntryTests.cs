@@ -26,7 +26,7 @@ public class JournalEntryTests
     {
         var postings = new[] { Posting.Debit(_cash, Eur(100m)), Posting.Credit(_customer, Eur(100m)) };
 
-        var entry = JournalEntry.Book(JournalEntryId.New(_clock), postings, _clock);
+        var entry = JournalEntry.Book(JournalEntryId.New(_clock), postings, _clock).Value;
 
         Assert.Equal(postings, entry.Postings);
         Assert.Equal(Now, entry.BookedAt);
@@ -38,7 +38,7 @@ public class JournalEntryTests
         var entry = JournalEntry.Book(
             JournalEntryId.New(_clock),
             [Posting.Debit(_customer, Eur(10.00m)), Posting.Credit(_cash, Eur(9.75m)), Posting.Credit(_fees, Eur(0.25m))],
-            _clock);
+            _clock).Value;
 
         Assert.Equal(3, entry.Postings.Count);
     }
@@ -48,9 +48,12 @@ public class JournalEntryTests
     {
         Posting[] postings = [Posting.Debit(_cash, Eur(100m)), Posting.Credit(_customer, Eur(99.99m))];
 
-        var error = Assert.Throws<UnbalancedEntryException>(() => JournalEntry.Book(JournalEntryId.New(_clock), postings, _clock));
-        Assert.Contains("EUR 100.00", error.Message, StringComparison.Ordinal);
-        Assert.Contains("EUR 99.99", error.Message, StringComparison.Ordinal);
+        var result = JournalEntry.Book(JournalEntryId.New(_clock), postings, _clock);
+
+        Assert.False(result.IsSuccess);
+        Assert.Equal(LedgerErrors.UnbalancedCode, result.Error.Code);
+        Assert.Contains("EUR 100.00", result.Error.Message, StringComparison.Ordinal);
+        Assert.Contains("EUR 99.99", result.Error.Message, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -64,27 +67,28 @@ public class JournalEntryTests
                 Posting.Debit(_customer, Eur(100m)), Posting.Credit(fxDesk, Eur(100m)),
                 Posting.Debit(fxDesk, Usd(108m)), Posting.Credit(_customer, Usd(108m)),
             ],
-            _clock);
+            _clock).Value;
 
         Assert.Equal(4, balanced.Postings.Count);
-        Assert.Throws<UnbalancedEntryException>(() => JournalEntry.Book(
+        var mixed = JournalEntry.Book(
             JournalEntryId.New(_clock),
             [Posting.Debit(_customer, Eur(100m)), Posting.Credit(fxDesk, Usd(100m))],
-            _clock));
+            _clock);
+        Assert.Equal(LedgerErrors.UnbalancedCode, mixed.Error?.Code);
     }
 
     [Fact]
     public void Needs_at_least_two_postings()
     {
-        Assert.Throws<ArgumentException>(() => JournalEntry.Book(JournalEntryId.New(_clock), [Posting.Debit(_cash, Eur(1m))], _clock));
-        Assert.Throws<ArgumentException>(() => JournalEntry.Book(JournalEntryId.New(_clock), [], _clock));
+        Assert.Equal(LedgerErrors.TooFewPostingsCode, JournalEntry.Book(JournalEntryId.New(_clock), [Posting.Debit(_cash, Eur(1m))], _clock).Error?.Code);
+        Assert.Equal(LedgerErrors.TooFewPostingsCode, JournalEntry.Book(JournalEntryId.New(_clock), [], _clock).Error?.Code);
     }
 
     [Fact]
     public void Later_changes_to_the_source_list_do_not_reach_the_entry()
     {
         var postings = new List<Posting> { Posting.Debit(_cash, Eur(5m)), Posting.Credit(_customer, Eur(5m)) };
-        var entry = JournalEntry.Book(JournalEntryId.New(_clock), postings, _clock);
+        var entry = JournalEntry.Book(JournalEntryId.New(_clock), postings, _clock).Value;
 
         postings.Add(Posting.Debit(_fees, Eur(1m)));
 
