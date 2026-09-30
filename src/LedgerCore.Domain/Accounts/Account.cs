@@ -46,7 +46,7 @@ public sealed class Account : AggregateRoot<AccountId>
         return account;
     }
 
-    public void Freeze(FreezeReason reason, TimeProvider clock)
+    public Result Freeze(FreezeReason reason, TimeProvider clock)
     {
         ArgumentNullException.ThrowIfNull(clock);
         if (!Enum.IsDefined(reason))
@@ -54,33 +54,33 @@ public sealed class Account : AggregateRoot<AccountId>
             throw new ArgumentOutOfRangeException(nameof(reason), reason, "Unknown freeze reason.");
         }
 
-        EnsureStatus(AccountStatus.Open, "frozen");
-        Raise(new AccountFrozen(Id, reason, clock.GetUtcNow()));
+        return Change(AccountStatus.Open, "frozen", () => new AccountFrozen(Id, reason, clock.GetUtcNow()));
     }
 
-    public void Unfreeze(TimeProvider clock)
+    public Result Unfreeze(TimeProvider clock)
     {
         ArgumentNullException.ThrowIfNull(clock);
 
-        EnsureStatus(AccountStatus.Frozen, "unfrozen");
-        Raise(new AccountUnfrozen(Id, clock.GetUtcNow()));
+        return Change(AccountStatus.Frozen, "unfrozen", () => new AccountUnfrozen(Id, clock.GetUtcNow()));
     }
 
     // a frozen account has to be released first, so closing can't be used to get around a hold
-    public void Close(TimeProvider clock)
+    public Result Close(TimeProvider clock)
     {
         ArgumentNullException.ThrowIfNull(clock);
 
-        EnsureStatus(AccountStatus.Open, "closed");
-        Raise(new AccountClosed(Id, clock.GetUtcNow()));
+        return Change(AccountStatus.Open, "closed", () => new AccountClosed(Id, clock.GetUtcNow()));
     }
 
-    private void EnsureStatus(AccountStatus expected, string action)
+    private Result Change(AccountStatus requiredStatus, string action, Func<IDomainEvent> change)
     {
-        if (Status != expected)
+        if (Status != requiredStatus)
         {
-            throw new AccountStateException(Id, Status, action);
+            return Result.Failure(AccountErrors.InvalidState(Id, Status, action));
         }
+
+        Raise(change());
+        return Result.Success();
     }
 
     protected override void Apply(IDomainEvent domainEvent)
