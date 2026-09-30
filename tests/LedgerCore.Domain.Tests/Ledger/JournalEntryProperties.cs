@@ -38,7 +38,7 @@ public class JournalEntryProperties
     public Property Any_balanced_set_of_postings_books() =>
         Prop.ForAll(BalancedEntries, postings =>
         {
-            var entry = JournalEntry.Book(JournalEntryId.New(Clock), postings, Clock);
+            var entry = JournalEntry.Book(JournalEntryId.New(Clock), postings, Clock).Value;
             return entry.Postings.SequenceEqual(postings);
         });
 
@@ -46,7 +46,7 @@ public class JournalEntryProperties
     public Property Debits_equal_credits_in_every_currency_of_a_booked_entry() =>
         Prop.ForAll(BalancedEntries, postings =>
         {
-            var entry = JournalEntry.Book(JournalEntryId.New(Clock), postings, Clock);
+            var entry = JournalEntry.Book(JournalEntryId.New(Clock), postings, Clock).Value;
             return entry.Postings
                 .GroupBy(p => p.Amount.Currency)
                 .All(g => Sum(g, PostingSide.Debit) == Sum(g, PostingSide.Credit));
@@ -89,18 +89,8 @@ public class JournalEntryProperties
         return posting.Side == PostingSide.Debit ? Posting.Debit(posting.AccountId, amount) : Posting.Credit(posting.AccountId, amount);
     }
 
-    private static bool Refused(Posting[] postings)
-    {
-        try
-        {
-            JournalEntry.Book(JournalEntryId.New(Clock), postings, Clock);
-            return false;
-        }
-        catch (UnbalancedEntryException)
-        {
-            return true;
-        }
-    }
+    private static bool Refused(Posting[] postings) =>
+        JournalEntry.Book(JournalEntryId.New(Clock), postings, Clock).Error?.Code == LedgerErrors.UnbalancedCode;
 
     private static Money Minor(int units, Currency currency) =>
         Money.Of(units / (decimal)Math.Pow(10, currency.MinorUnits), currency);

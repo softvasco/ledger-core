@@ -1,3 +1,4 @@
+using LedgerCore.Domain.Abstractions;
 using LedgerCore.Domain.Accounts;
 using LedgerCore.Domain.Accounts.Events;
 using LedgerCore.Domain.Monetary;
@@ -67,7 +68,7 @@ public class AccountTests
         var account = OpenAccount();
         account.Freeze(FreezeReason.Sanctions, _clock);
 
-        Assert.Throws<AccountStateException>(() => account.Freeze(FreezeReason.CourtOrder, _clock));
+        AssertRefused(account.Freeze(FreezeReason.CourtOrder, _clock));
         Assert.Equal(2, account.PendingEvents.Count);
     }
 
@@ -76,7 +77,7 @@ public class AccountTests
     {
         var account = OpenAccount();
 
-        Assert.Throws<AccountStateException>(() => account.Unfreeze(_clock));
+        AssertRefused(account.Unfreeze(_clock));
     }
 
     [Fact]
@@ -92,8 +93,9 @@ public class AccountTests
     {
         var account = OpenAccount();
 
-        account.Close(_clock);
+        var result = account.Close(_clock);
 
+        Assert.True(result.IsSuccess);
         Assert.Equal(AccountStatus.Closed, account.Status);
         Assert.Equal(new AccountClosed(account.Id, Start), account.PendingEvents[^1]);
     }
@@ -104,7 +106,7 @@ public class AccountTests
         var account = OpenAccount();
         account.Freeze(FreezeReason.CourtOrder, _clock);
 
-        Assert.Throws<AccountStateException>(() => account.Close(_clock));
+        AssertRefused(account.Close(_clock));
 
         account.Unfreeze(_clock);
         account.Close(_clock);
@@ -117,9 +119,9 @@ public class AccountTests
         var account = OpenAccount();
         account.Close(_clock);
 
-        Assert.Throws<AccountStateException>(() => account.Close(_clock));
-        Assert.Throws<AccountStateException>(() => account.Freeze(FreezeReason.Sanctions, _clock));
-        Assert.Throws<AccountStateException>(() => account.Unfreeze(_clock));
+        AssertRefused(account.Close(_clock));
+        AssertRefused(account.Freeze(FreezeReason.Sanctions, _clock));
+        AssertRefused(account.Unfreeze(_clock));
     }
 
     [Fact]
@@ -149,4 +151,10 @@ public class AccountTests
     }
 
     private Account OpenAccount() => Account.Open(AccountId.New(_clock), SomeIban, Currency.Eur, _clock);
+
+    private static void AssertRefused(Result result)
+    {
+        Assert.False(result.IsSuccess);
+        Assert.Equal(AccountErrors.InvalidStateCode, result.Error.Code);
+    }
 }
