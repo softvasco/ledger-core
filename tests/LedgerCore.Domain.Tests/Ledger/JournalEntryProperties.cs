@@ -20,12 +20,19 @@ public class JournalEntryProperties
 
     private static readonly Gen<AccountId> Accounts = Gen.Elements(Enumerable.Range(0, 6).Select(_ => AccountId.New(Clock)).ToArray());
 
-    private static readonly Arbitrary<Posting[]> BalancedEntries =
-        (from currencies in Gen.SubListOf(Currencies)
-         where currencies.Count > 0
-         from groups in Gen.CollectToArray(currencies, BalancedPostings)
-         from shuffled in Gen.Shuffle(groups.SelectMany(g => g).ToArray())
-         select shuffled).ToArbitrary();
+    private static readonly Gen<Posting[]> BalancedEntry =
+        from currencies in Gen.SubListOf(Currencies)
+        where currencies.Count > 0
+        from groups in Gen.CollectToArray(currencies, BalancedPostings)
+        from shuffled in Gen.Shuffle(groups.SelectMany(g => g).ToArray())
+         select shuffled;
+
+    private static readonly Arbitrary<Posting[]> BalancedEntries = BalancedEntry.ToArbitrary();
+
+    private static readonly Arbitrary<(Posting[] Postings, int Index)> BalancedEntriesWithOnePicked =
+        (from postings in BalancedEntry
+         from index in Gen.Choose(0, postings.Length - 1)
+         select (postings, index)).ToArbitrary();
 
     [Property(MaxTest = 500)]
     public Property Any_balanced_set_of_postings_books() =>
@@ -45,6 +52,22 @@ public class JournalEntryProperties
                 .All(g => Sum(g, PostingSide.Debit) == Sum(g, PostingSide.Credit));
         });
 
+    [Property(MaxTest = 500)]
+    public Property One_minor_unit_off_on_any_posting_is_refused() =>
+        Prop.ForAll(BalancedEntriesWithOnePicked, entry =>
+        {
+            entry.Postings[entry.Index] = OneMinorUnitMore(entry.Postings[entry.Index]);
+            return Refused(entry.Postings);
+        });
+
+    [Property(MaxTest = 500)]
+    public Property Dropping_any_posting_unbalances_the_entry() =>
+        Prop.ForAll(BalancedEntriesWithOnePicked, entry =>
+        {
+            var rest = entry.Postings.Where((_, i) => i != entry.Index).ToArray();
+            return rest.Length < 2 || Refused(rest);
+        });
+
     private static Gen<IEnumerable<Posting>> BalancedPostings(Currency currency) =>
         from count in Gen.Choose(1, MaxPostingsPerSide)
         from debits in Gen.Choose(1, MaxMinorUnits).ArrayOf(count)
@@ -59,6 +82,25 @@ public class JournalEntryProperties
         from cuts in Gen.Choose(1, Math.Max(1, total - 1)).ArrayOf(MaxPostingsPerSide - 1)
         let points = cuts.Where(c => c < total).Distinct().Order().Prepend(0).Append(total).ToArray()
         select points.Zip(points.Skip(1), (start, end) => end - start).ToArray();
+
+    private static Posting OneMinorUnitMore(Posting posting)
+    {
+        var amount = posting.Amount + Minor(1, posting.Amount.Currency);
+        return posting.Side == PostingSide.Debit ? Posting.Debit(posting.AccountId, amount) : Posting.Credit(posting.AccountId, amount);
+    }
+
+    private static bool Refused(Posting[] postings)
+    {
+        try
+        {
+            JournalEntry.Book(JournalEntryId.New(Clock), postings, Clock);
+            return false;
+        }
+        catch (UnbalancedEntryException)
+        {
+            return true;
+        }
+    }
 
     private static Money Minor(int units, Currency currency) =>
         Money.Of(units / (decimal)Math.Pow(10, currency.MinorUnits), currency);
