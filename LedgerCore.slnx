@@ -8,5 +8,6 @@
   <Folder Name="/tests/">
     <Project Path="tests/LedgerCore.Application.Tests/LedgerCore.Application.Tests.csproj" />
     <Project Path="tests/LedgerCore.Domain.Tests/LedgerCore.Domain.Tests.csproj" />
+    <Project Path="tests/LedgerCore.Infrastructure.Tests/LedgerCore.Infrastructure.Tests.csproj" />
   </Folder>
 </Solution>
