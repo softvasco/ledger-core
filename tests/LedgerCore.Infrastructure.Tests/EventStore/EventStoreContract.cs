@@ -1,5 +1,4 @@
 using LedgerCore.Application.EventStore;
-using LedgerCore.Domain.Abstractions;
 
 namespace LedgerCore.Infrastructure.Tests.EventStore;
 
@@ -153,6 +152,4 @@ public abstract class EventStoreContract
 
     private async Task<long> LastPosition() =>
         (await ReadAll(0)).Select(e => e.Position).DefaultIfEmpty(0).Max();
-
-    private sealed record SomethingHappened(int Number, DateTimeOffset OccurredAt) : IDomainEvent;
 }
