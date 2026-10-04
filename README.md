@@ -5,7 +5,7 @@
 
 An event-sourced, double-entry banking ledger in .NET 10. Every movement debits one account and credits another, nothing is ever updated in place, and any balance can be rebuilt from the events that produced it.
 
-Work in progress. The domain model is in place; the event store is next, then the API and messaging.
+Work in progress. The domain model and the PostgreSQL event store are in place; the API and messaging are next.
 
 ## Why
 
@@ -23,9 +23,10 @@ Done:
 - `Account` aggregate (open, freeze, unfreeze, close) built from its events on a small aggregate root with versioning.
 - Journal entries of two or more postings that must balance in every currency, checked with FsCheck property tests ([ADR-0004](docs/adr/0004-double-entry-bookkeeping-model.md)).
 - Business rule failures come back as `Result` with stable error codes; exceptions are kept for bugs ([ADR-0003](docs/adr/0003-results-for-business-rule-failures.md)).
+- Event store on a single PostgreSQL table: optimistic concurrency per stream, and a global position that readers can follow without skipping a late commit.
+- Snapshots every N events (100 by default). They are only a cache: a missing or unreadable snapshot just means a longer replay.
 
 Coming next:
-- PostgreSQL event store with optimistic concurrency and snapshots.
 - CQRS with a small hand-written dispatcher, minimal API with ProblemDetails and idempotency keys.
 - Transfers as a process manager, transactional outbox, Azure Service Bus.
 - Read models on SQL Server, .NET Aspire, OpenTelemetry, and a Blazor back office.
@@ -55,7 +56,7 @@ dotnet build
 dotnet test
 ```
 
-Needs the .NET 10 SDK. A one-command run with .NET Aspire comes once there is infrastructure to run.
+Needs the .NET 10 SDK, and Docker for the PostgreSQL tests (Testcontainers starts the database). A one-command run with .NET Aspire comes once there is infrastructure to run.
 
 ## License
 
