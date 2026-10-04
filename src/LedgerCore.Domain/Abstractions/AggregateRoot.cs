@@ -33,6 +33,18 @@ public abstract class AggregateRoot<TId>
         _pendingEvents.Add(@event);
     }
 
+    /// <summary>Starts a new aggregate at a snapshot's version, before replaying what came after.</summary>
+    protected void RestoreVersion(long snapshotVersion)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegativeOrZero(snapshotVersion);
+        if (Version != 0)
+        {
+            throw new InvalidOperationException("A snapshot can only be restored into a new aggregate.");
+        }
+
+        Version = snapshotVersion;
+    }
+
     protected void Replay(IEnumerable<IDomainEvent> history)
     {
         ArgumentNullException.ThrowIfNull(history);

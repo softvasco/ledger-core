@@ -46,6 +46,31 @@ public sealed class Account : AggregateRoot<AccountId>
         return account;
     }
 
+    /// <summary>Rebuilds an account from a snapshot and the events stored after it.</summary>
+    public static Account FromSnapshot(AccountSnapshot snapshot, IEnumerable<IDomainEvent> laterEvents)
+    {
+        ArgumentNullException.ThrowIfNull(snapshot);
+        ArgumentNullException.ThrowIfNull(laterEvents);
+
+        var account = new Account
+        {
+            Id = snapshot.AccountId,
+            Iban = snapshot.Iban,
+            Currency = snapshot.Currency,
+            Status = snapshot.Status,
+            FreezeReason = snapshot.FreezeReason,
+        };
+        account.RestoreVersion(snapshot.Version);
+        account.Replay(laterEvents);
+        return account;
+    }
+
+    // a snapshot of unsaved changes could outlive a failed append and claim events that never got stored
+    public AccountSnapshot ToSnapshot() =>
+        PendingEvents.Count == 0
+            ? new AccountSnapshot(Id, Iban, Currency, Status, FreezeReason, Version)
+            : throw new InvalidOperationException("Save the pending events before taking a snapshot.");
+
     public Result Freeze(FreezeReason reason, TimeProvider clock)
     {
         ArgumentNullException.ThrowIfNull(clock);
