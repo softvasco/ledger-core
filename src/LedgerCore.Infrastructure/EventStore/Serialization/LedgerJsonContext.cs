@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization;
+using LedgerCore.Domain.Accounts;
 using LedgerCore.Domain.Accounts.Events;
 
 namespace LedgerCore.Infrastructure.EventStore.Serialization;
@@ -11,4 +12,5 @@ namespace LedgerCore.Infrastructure.EventStore.Serialization;
 [JsonSerializable(typeof(AccountFrozen))]
 [JsonSerializable(typeof(AccountUnfrozen))]
 [JsonSerializable(typeof(AccountClosed))]
+[JsonSerializable(typeof(AccountSnapshot))]
 internal sealed partial class LedgerJsonContext : JsonSerializerContext;
