@@ -53,7 +53,7 @@ public class PostgresEventStoreTests(PostgresFixture fixture)
 
         var laterAppend = store.AppendAsync(
             StreamId.For("test", Guid.CreateVersion7()), 0, [new SomethingHappened(2, DateTimeOffset.UnixEpoch)], Token);
-        await WaitUntilAnAppendIsBlocked();
+        await WaitUntilBlocked("advisory");
 
         Assert.False(laterAppend.IsCompleted);
         Assert.Empty(await ReadAllAfter(checkpoint));
@@ -63,6 +63,22 @@ public class PostgresEventStoreTests(PostgresFixture fixture)
 
         var numbers = (await ReadAllAfter(checkpoint)).Select(e => ((SomethingHappened)e.Event).Number);
         Assert.Equal([1, 2], numbers);
+    }
+
+    [Fact]
+    public async Task A_writer_that_skips_the_lock_still_gets_a_conflict_not_a_database_error()
+    {
+        var stream = StreamId.For("test", Guid.CreateVersion7());
+        await using var rogue = await fixture.DataSource.OpenConnectionAsync(Token);
+        await using var rogueTransaction = await rogue.BeginTransactionAsync(Token);
+        await InsertRaw(rogue, rogueTransaction, stream, number: 1);
+
+        var append = fixture.Store.AppendAsync(stream, 0, [new SomethingHappened(2, DateTimeOffset.UnixEpoch)], Token);
+        await WaitUntilBlocked("transactionid");
+        await rogueTransaction.CommitAsync(Token);
+
+        var conflict = await Assert.ThrowsAsync<ConcurrencyConflictException>(() => append.WaitAsync(WaitLimit, Token));
+        Assert.Equal((0L, 1L), (conflict.ExpectedVersion, conflict.ActualVersion));
     }
 
     private static async Task TakeAppendLock(NpgsqlConnection connection, NpgsqlTransaction transaction)
@@ -91,10 +107,11 @@ public class PostgresEventStoreTests(PostgresFixture fixture)
     }
 
     // polls pg_locks instead of sleeping, so the test is as fast as the database
-    private async Task WaitUntilAnAppendIsBlocked()
+    private async Task WaitUntilBlocked(string lockType)
     {
         await using var command = fixture.DataSource.CreateCommand(
-            "select count(*) from pg_locks where locktype = 'advisory' and not granted");
+            "select count(*) from pg_locks where locktype = @lockType and not granted");
+        command.Parameters.AddWithValue("lockType", lockType);
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(Token);
         timeout.CancelAfter(WaitLimit);
 

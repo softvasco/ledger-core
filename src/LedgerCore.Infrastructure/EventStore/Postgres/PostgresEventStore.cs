@@ -12,6 +12,8 @@ public sealed class PostgresEventStore : IEventStore
     // any constant works, it only has to be the same for every writer
     internal const long AppendLockKey = 0x4C65646765;
 
+    private const string StreamVersionKey = "events_stream_version_key";
+
     private readonly NpgsqlDataSource _dataSource;
     private readonly IEventSerializer _serializer;
 
@@ -71,8 +73,20 @@ public sealed class PostgresEventStore : IEventStore
             batch.BatchCommands.Add(InsertCommand(stream, ++version, @event));
         }
 
-        await batch.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
-        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        try
+        {
+            await batch.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
+            await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
+        }
+        catch (PostgresException e)
+            when (e is { SqlState: PostgresErrorCodes.UniqueViolation, ConstraintName: StreamVersionKey })
+        {
+            // only reachable when something wrote to the stream without taking the append lock
+            await transaction.RollbackAsync(cancellationToken).ConfigureAwait(false);
+            var current = await CurrentVersionAsync(connection, null, stream, cancellationToken).ConfigureAwait(false);
+            throw new ConcurrencyConflictException(stream, expectedVersion, current);
+        }
+
         return version;
     }
 
@@ -124,7 +138,7 @@ public sealed class PostgresEventStore : IEventStore
 
     private static async Task<long> CurrentVersionAsync(
         NpgsqlConnection connection,
-        NpgsqlTransaction transaction,
+        NpgsqlTransaction? transaction,
         StreamId stream,
         CancellationToken cancellationToken)
     {
