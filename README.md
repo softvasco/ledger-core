@@ -25,6 +25,7 @@ Done:
 - Business rule failures come back as `Result` with stable error codes; exceptions are kept for bugs ([ADR-0003](docs/adr/0003-results-for-business-rule-failures.md)).
 - Event store on a single PostgreSQL table: optimistic concurrency per stream, and a global position that readers can follow without skipping a late commit.
 - Snapshots every N events (100 by default). They are only a cache: a missing or unreadable snapshot just means a longer replay.
+- Benchmarks for appends and stream reads, with the results in [docs/performance.md](docs/performance.md).
 
 Coming next:
 - CQRS with a small hand-written dispatcher, minimal API with ProblemDetails and idempotency keys.
