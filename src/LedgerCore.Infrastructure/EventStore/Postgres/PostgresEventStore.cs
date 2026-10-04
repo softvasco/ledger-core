@@ -10,7 +10,7 @@ namespace LedgerCore.Infrastructure.EventStore.Postgres;
 public sealed class PostgresEventStore : IEventStore
 {
     // any constant works, it only has to be the same for every writer
-    private const long AppendLockKey = 0x4C65646765;
+    internal const long AppendLockKey = 0x4C65646765;
 
     private readonly NpgsqlDataSource _dataSource;
     private readonly IEventSerializer _serializer;
