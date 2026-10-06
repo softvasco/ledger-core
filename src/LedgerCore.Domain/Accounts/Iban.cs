@@ -1,6 +1,5 @@
 using System.Collections.Frozen;
 using System.Diagnostics.CodeAnalysis;
-using System.Text;
 
 namespace LedgerCore.Domain.Accounts;
 
@@ -60,27 +59,15 @@ public sealed record Iban
     /// <summary>Print format, in groups of four, the way it appears on a statement.</summary>
     public override string ToString() => string.Join(' ', Value.Chunk(4).Select(c => new string(c)));
 
-    private static string Compact(string value)
-    {
-        var sb = new StringBuilder(value.Length);
-        foreach (var c in value)
-        {
-            if (!char.IsWhiteSpace(c))
-            {
-                sb.Append(char.ToUpperInvariant(c));
-            }
-        }
-
-        return sb.ToString();
-    }
+    private static string Compact(string value) =>
+        string.Concat(value.Where(c => !char.IsWhiteSpace(c)).Select(char.ToUpperInvariant));
 
     // country and check digits move to the end, letters become 10..35, and the whole number mod 97 must be 1
     private static int Mod97(string iban)
     {
         var remainder = 0;
-        foreach (var c in iban[4..] + iban[..4])
+        foreach (var digit in (iban[4..] + iban[..4]).Select(c => char.IsAsciiDigit(c) ? c - '0' : c - 'A' + 10))
         {
-            var digit = char.IsAsciiDigit(c) ? c - '0' : c - 'A' + 10;
             remainder = digit >= 10
                 ? ((remainder * 100) + digit) % 97
                 : ((remainder * 10) + digit) % 97;
