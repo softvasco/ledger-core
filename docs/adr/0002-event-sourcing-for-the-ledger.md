@@ -28,7 +28,7 @@ The ledger is event sourced. Every change to an aggregate (account opened, funds
 
 Appends use optimistic concurrency on the stream version, so two commands racing on the same account can't both win.
 
-Which store to use (hand-written on PostgreSQL, Marten or EventStoreDB) is a separate decision, recorded later.
+Which store to use (hand-written on PostgreSQL, Marten or EventStoreDB) is a separate decision, recorded in ADR-0005.
 
 ## Consequences
 
