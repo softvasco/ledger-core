@@ -30,6 +30,7 @@ public sealed partial class AccountRepository(
         return later.Count == 0 ? null : Account.FromHistory(later);
     }
 
+    /// <summary>Appends the pending events, then snapshots the account when the policy says so.</summary>
     /// <exception cref="ConcurrencyConflictException">The account changed since it was loaded.</exception>
     public async Task SaveAsync(Account account, CancellationToken cancellationToken = default)
     {
