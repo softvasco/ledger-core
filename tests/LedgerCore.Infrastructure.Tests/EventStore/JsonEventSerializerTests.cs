@@ -19,6 +19,8 @@ public class JsonEventSerializerTests
         new AccountFrozen(SomeAccount, FreezeReason.CourtOrder, Now),
         new AccountUnfrozen(SomeAccount, Now),
         new AccountClosed(SomeAccount, Now),
+        new MoneyDeposited(SomeAccount, Money.Of(1250.75m, Currency.Eur), Now),
+        new MoneyWithdrawn(SomeAccount, Money.Of(5000m, Currency.FromCode("JPY")), Now),
     ];
 
     [Theory]
@@ -41,6 +43,27 @@ public class JsonEventSerializerTests
         Assert.Equal(
             """{"accountId":"0199a3c2-7b1e-7d40-9a51-3c0f6e2b8d14","iban":"PT50000201231234567890154","currency":"EUR","occurredAt":"2026-10-03T21:00:00+00:00"}""",
             stored.Json);
+    }
+
+    [Fact]
+    public void Money_deposited_keeps_its_stored_shape()
+    {
+        var stored = _serializer.Serialize(new MoneyDeposited(SomeAccount, Money.Of(1250.75m, Currency.Eur), Now));
+
+        Assert.Equal("money_deposited", stored.EventType);
+        Assert.Equal(
+            """{"accountId":"0199a3c2-7b1e-7d40-9a51-3c0f6e2b8d14","amount":{"amount":1250.75,"currency":"EUR"},"occurredAt":"2026-10-03T21:00:00+00:00"}""",
+            stored.Json);
+    }
+
+    // the stored amount goes through Money.Of again, so a row edited by hand can't sneak in a third decimal
+    [Fact]
+    public void A_stored_amount_with_too_many_decimals_does_not_load()
+    {
+        const string json =
+            """{"accountId":"0199a3c2-7b1e-7d40-9a51-3c0f6e2b8d14","amount":{"amount":1.005,"currency":"EUR"},"occurredAt":"2026-10-03T21:00:00+00:00"}""";
+
+        Assert.Throws<ArgumentException>(() => _serializer.Deserialize("money_deposited", json));
     }
 
     [Fact]

@@ -20,19 +20,23 @@ public class AccountSnapshotTests
         var history = new List<IDomainEvent>
         {
             new AccountOpened(id, SomeIban, Currency.Eur, Start),
+            new MoneyDeposited(id, Money.Of(100m, Currency.Eur), Start),
             new AccountFrozen(id, FreezeReason.SuspectedFraud, Start),
         };
         var snapshot = Account.FromHistory(history).ToSnapshot();
         var later = new IDomainEvent[]
         {
-            new AccountUnfrozen(id, Start), new AccountFrozen(id, FreezeReason.CourtOrder, Start),
+            new AccountUnfrozen(id, Start),
+            new MoneyWithdrawn(id, Money.Of(30.25m, Currency.Eur), Start),
+            new AccountFrozen(id, FreezeReason.CourtOrder, Start),
         };
 
         var fromSnapshot = Account.FromSnapshot(snapshot, later);
         var replayed = Account.FromHistory([.. history, .. later]);
 
         Assert.Equal(replayed.ToSnapshot(), fromSnapshot.ToSnapshot());
-        Assert.Equal(4, fromSnapshot.Version);
+        Assert.Equal(Money.Of(69.75m, Currency.Eur), fromSnapshot.Balance);
+        Assert.Equal(6, fromSnapshot.Version);
         Assert.Empty(fromSnapshot.PendingEvents);
     }
 
@@ -46,7 +50,8 @@ public class AccountSnapshotTests
         var snapshot = account.ToSnapshot();
 
         Assert.Equal(
-            new AccountSnapshot(account.Id, SomeIban, Currency.Eur, AccountStatus.Frozen, FreezeReason.Sanctions, 2),
+            new AccountSnapshot(
+                account.Id, SomeIban, Currency.Eur, AccountStatus.Frozen, FreezeReason.Sanctions, Money.Zero(Currency.Eur), 2),
             snapshot);
     }
 

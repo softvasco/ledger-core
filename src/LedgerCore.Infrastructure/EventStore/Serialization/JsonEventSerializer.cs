@@ -16,6 +16,8 @@ public sealed class JsonEventSerializer : IEventSerializer
         ["account_frozen"] = typeof(AccountFrozen),
         ["account_unfrozen"] = typeof(AccountUnfrozen),
         ["account_closed"] = typeof(AccountClosed),
+        ["money_deposited"] = typeof(MoneyDeposited),
+        ["money_withdrawn"] = typeof(MoneyWithdrawn),
     }.ToFrozenDictionary(StringComparer.Ordinal);
 
     private static readonly FrozenDictionary<Type, string> NamesByType =
