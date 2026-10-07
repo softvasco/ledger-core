@@ -4,7 +4,7 @@ using Microsoft.Extensions.DependencyInjection;
 
 namespace LedgerCore.Application.Commands;
 
-/// <summary>Runs the one handler registered for the command's runtime type.</summary>
+/// <summary>Runs the one handler registered for the command's runtime type, inside its behaviors.</summary>
 public sealed class CommandDispatcher(IServiceProvider services) : ICommandDispatcher
 {
     // closed handler type per command type, built once, since callers only see ICommand<TResult>
@@ -49,7 +49,17 @@ public sealed class CommandDispatcher(IServiceProvider services) : ICommandDispa
                 _ => throw new InvalidOperationException(
                     $"{handlers.Length} handlers are registered for {typeof(TCommand).Name}, expected one."),
             };
-            return handler.HandleAsync((TCommand)command, cancellationToken);
+            var typed = (TCommand)command;
+            Func<Task<TResult>> pipeline = () => handler.HandleAsync(typed, cancellationToken);
+
+            // wrap from the inside out, so the first behavior registered is the first to run
+            foreach (var behavior in services.GetServices<ICommandBehavior<TCommand, TResult>>().Reverse())
+            {
+                var next = pipeline;
+                pipeline = () => behavior.HandleAsync(typed, next, cancellationToken);
+            }
+
+            return pipeline();
         }
     }
 }

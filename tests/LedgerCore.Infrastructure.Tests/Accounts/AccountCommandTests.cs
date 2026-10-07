@@ -2,6 +2,7 @@ using LedgerCore.Application.Accounts;
 using LedgerCore.Application.Commands;
 using LedgerCore.Application.EventStore;
 using LedgerCore.Application.Snapshots;
+using LedgerCore.Application.Validation;
 using LedgerCore.Domain.Accounts;
 using LedgerCore.Domain.Monetary;
 using LedgerCore.Infrastructure.EventStore;
@@ -83,6 +84,35 @@ public sealed class AccountCommandTests : IDisposable
 
         Assert.Equal(AccountErrors.NotFoundCode, deposit.Error?.Code);
         Assert.Equal(AccountErrors.NotFoundCode, withdrawal.Error?.Code);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-5)]
+    public async Task A_deposit_or_withdrawal_of_zero_or_less_is_invalid_and_stores_nothing(decimal amount)
+    {
+        var id = await Open();
+
+        var deposit = await Assert.ThrowsAsync<CommandValidationException>(
+            () => _dispatcher.DispatchAsync(new Deposit(id, Eur(amount)), Token));
+        var withdrawal = await Assert.ThrowsAsync<CommandValidationException>(
+            () => _dispatcher.DispatchAsync(new Withdraw(id, Eur(amount)), Token));
+
+        Assert.Equal("must_be_positive", Assert.Single(deposit.Errors).Code);
+        Assert.Equal("must_be_positive", Assert.Single(withdrawal.Errors).Code);
+        Assert.Equal(1, await StoredEvents(id));
+    }
+
+    [Fact]
+    public async Task Missing_fields_are_all_reported()
+    {
+        var open = await Assert.ThrowsAsync<CommandValidationException>(
+            () => _dispatcher.DispatchAsync(new OpenAccount(null!, null!), Token));
+        var deposit = await Assert.ThrowsAsync<CommandValidationException>(
+            () => _dispatcher.DispatchAsync(new Deposit(default, null!), Token));
+
+        Assert.Equal(["iban", "currency"], open.Errors.Select(e => e.Field));
+        Assert.Equal(["accountId", "amount"], deposit.Errors.Select(e => e.Field));
     }
 
     public void Dispose()
