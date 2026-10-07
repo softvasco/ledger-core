@@ -19,6 +19,9 @@ public sealed class Account : AggregateRoot<AccountId>
 
     public FreezeReason? FreezeReason { get; private set; }
 
+    /// <summary>What the account holds, kept here so a withdrawal can be refused before it is recorded (ADR-0006).</summary>
+    public Money Balance { get; private set; } = null!;
+
     public static Account Open(AccountId id, Iban iban, Currency currency, TimeProvider clock)
     {
         ArgumentNullException.ThrowIfNull(iban);
@@ -59,6 +62,7 @@ public sealed class Account : AggregateRoot<AccountId>
             Currency = snapshot.Currency,
             Status = snapshot.Status,
             FreezeReason = snapshot.FreezeReason,
+            Balance = snapshot.Balance,
         };
         account.RestoreVersion(snapshot.Version);
         account.Replay(laterEvents);
@@ -68,7 +72,7 @@ public sealed class Account : AggregateRoot<AccountId>
     // a snapshot of unsaved changes could outlive a failed append and claim events that never got stored
     public AccountSnapshot ToSnapshot() =>
         PendingEvents.Count == 0
-            ? new AccountSnapshot(Id, Iban, Currency, Status, FreezeReason, Version)
+            ? new AccountSnapshot(Id, Iban, Currency, Status, FreezeReason, Balance, Version)
             : throw new InvalidOperationException("Save the pending events before taking a snapshot.");
 
     public Result Freeze(FreezeReason reason, TimeProvider clock)
@@ -97,6 +101,59 @@ public sealed class Account : AggregateRoot<AccountId>
         return Change(AccountStatus.Open, "closed", () => new AccountClosed(Id, clock.GetUtcNow()));
     }
 
+    // a hold stops money leaving, not arriving, so a frozen account still takes deposits
+    public Result Deposit(Money amount, TimeProvider clock)
+    {
+        RequirePositive(amount);
+        ArgumentNullException.ThrowIfNull(clock);
+
+        if (Status == AccountStatus.Closed)
+        {
+            return Result.Failure(AccountErrors.InvalidState(Id, Status, "credited"));
+        }
+
+        if (amount.Currency != Currency)
+        {
+            return Result.Failure(AccountErrors.CurrencyMismatch(Id, Currency, amount.Currency));
+        }
+
+        Raise(new MoneyDeposited(Id, amount, clock.GetUtcNow()));
+        return Result.Success();
+    }
+
+    public Result Withdraw(Money amount, TimeProvider clock)
+    {
+        RequirePositive(amount);
+        ArgumentNullException.ThrowIfNull(clock);
+
+        if (Status != AccountStatus.Open)
+        {
+            return Result.Failure(AccountErrors.InvalidState(Id, Status, "debited"));
+        }
+
+        if (amount.Currency != Currency)
+        {
+            return Result.Failure(AccountErrors.CurrencyMismatch(Id, Currency, amount.Currency));
+        }
+
+        if (amount > Balance)
+        {
+            return Result.Failure(AccountErrors.InsufficientFunds(Id, Balance, amount));
+        }
+
+        Raise(new MoneyWithdrawn(Id, amount, clock.GetUtcNow()));
+        return Result.Success();
+    }
+
+    private static void RequirePositive(Money amount)
+    {
+        ArgumentNullException.ThrowIfNull(amount);
+        if (amount.IsNegative || amount.IsZero)
+        {
+            throw new ArgumentOutOfRangeException(nameof(amount), amount, "The amount must be greater than zero.");
+        }
+    }
+
     private Result Change(AccountStatus requiredStatus, string action, Func<IDomainEvent> change)
     {
         if (Status != requiredStatus)
@@ -117,6 +174,13 @@ public sealed class Account : AggregateRoot<AccountId>
                 Iban = opened.Iban;
                 Currency = opened.Currency;
                 Status = AccountStatus.Open;
+                Balance = Money.Zero(opened.Currency);
+                break;
+            case MoneyDeposited deposited:
+                Balance += deposited.Amount;
+                break;
+            case MoneyWithdrawn withdrawn:
+                Balance -= withdrawn.Amount;
                 break;
             case AccountFrozen frozen:
                 Status = AccountStatus.Frozen;

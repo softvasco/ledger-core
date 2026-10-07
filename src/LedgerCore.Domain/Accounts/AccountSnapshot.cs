@@ -9,4 +9,5 @@ public sealed record AccountSnapshot(
     Currency Currency,
     AccountStatus Status,
     FreezeReason? FreezeReason,
+    Money Balance,
     long Version);

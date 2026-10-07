@@ -125,9 +125,96 @@ public class AccountTests
     }
 
     [Fact]
+    public void A_new_account_holds_nothing()
+    {
+        Assert.Equal(Money.Zero(Currency.Eur), OpenAccount().Balance);
+    }
+
+    [Fact]
+    public void Deposits_and_withdrawals_move_the_balance()
+    {
+        var account = OpenAccount();
+
+        account.Deposit(Eur(100m), _clock);
+        account.Withdraw(Eur(30.25m), _clock);
+
+        Assert.Equal(Eur(69.75m), account.Balance);
+        Assert.Equal(new MoneyDeposited(account.Id, Eur(100m), Start), account.PendingEvents[1]);
+        Assert.Equal(new MoneyWithdrawn(account.Id, Eur(30.25m), Start), account.PendingEvents[2]);
+    }
+
+    [Fact]
+    public void Withdrawing_the_whole_balance_leaves_zero()
+    {
+        var account = OpenAccount();
+        account.Deposit(Eur(50m), _clock);
+
+        var result = account.Withdraw(Eur(50m), _clock);
+
+        Assert.True(result.IsSuccess);
+        Assert.True(account.Balance.IsZero);
+    }
+
+    [Fact]
+    public void Withdrawing_more_than_the_balance_is_refused_and_records_nothing()
+    {
+        var account = OpenAccount();
+        account.Deposit(Eur(50m), _clock);
+
+        var result = account.Withdraw(Eur(50.01m), _clock);
+
+        Assert.Equal(AccountErrors.InsufficientFundsCode, result.Error?.Code);
+        Assert.Equal(Eur(50m), account.Balance);
+        Assert.Equal(2, account.PendingEvents.Count);
+    }
+
+    [Fact]
+    public void A_frozen_account_takes_deposits_but_pays_nothing_out()
+    {
+        var account = OpenAccount();
+        account.Deposit(Eur(10m), _clock);
+        account.Freeze(FreezeReason.CourtOrder, _clock);
+
+        Assert.True(account.Deposit(Eur(5m), _clock).IsSuccess);
+        AssertRefused(account.Withdraw(Eur(1m), _clock));
+        Assert.Equal(Eur(15m), account.Balance);
+    }
+
+    [Fact]
+    public void A_closed_account_takes_no_deposits()
+    {
+        var account = OpenAccount();
+        account.Close(_clock);
+
+        AssertRefused(account.Deposit(Eur(5m), _clock));
+    }
+
+    [Fact]
+    public void Money_in_another_currency_is_refused()
+    {
+        var account = OpenAccount();
+        account.Deposit(Eur(10m), _clock);
+
+        Assert.Equal(AccountErrors.CurrencyMismatchCode, account.Deposit(Money.Of(5m, Currency.Usd), _clock).Error?.Code);
+        Assert.Equal(AccountErrors.CurrencyMismatchCode, account.Withdraw(Money.Of(5m, Currency.Usd), _clock).Error?.Code);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public void An_amount_must_be_greater_than_zero(decimal amount)
+    {
+        var account = OpenAccount();
+
+        Assert.Throws<ArgumentOutOfRangeException>(() => account.Deposit(Eur(amount), _clock));
+        Assert.Throws<ArgumentOutOfRangeException>(() => account.Withdraw(Eur(amount), _clock));
+    }
+
+    [Fact]
     public void Replaying_the_history_gives_the_same_state_with_nothing_pending()
     {
         var original = OpenAccount();
+        original.Deposit(Eur(20m), _clock);
         original.Freeze(FreezeReason.SuspectedFraud, _clock);
 
         var replayed = Account.FromHistory(original.PendingEvents);
@@ -136,9 +223,10 @@ public class AccountTests
         Assert.Equal(original.Iban, replayed.Iban);
         Assert.Equal(AccountStatus.Frozen, replayed.Status);
         Assert.Equal(FreezeReason.SuspectedFraud, replayed.FreezeReason);
+        Assert.Equal(Eur(20m), replayed.Balance);
         Assert.Empty(replayed.PendingEvents);
-        Assert.Equal(2, replayed.Version);
-        Assert.Equal(2, replayed.CommittedVersion);
+        Assert.Equal(3, replayed.Version);
+        Assert.Equal(3, replayed.CommittedVersion);
     }
 
     [Fact]
@@ -149,6 +237,8 @@ public class AccountTests
         Assert.Throws<ArgumentException>(() => Account.FromHistory([]));
         Assert.Throws<ArgumentException>(() => Account.FromHistory([new AccountClosed(id, Start)]));
     }
+
+    private static Money Eur(decimal amount) => Money.Of(amount, Currency.Eur);
 
     private Account OpenAccount() => Account.Open(AccountId.New(_clock), SomeIban, Currency.Eur, _clock);
 
