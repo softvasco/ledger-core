@@ -1,11 +1,12 @@
 using System.Reflection;
+using LedgerCore.Application.Validation;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LedgerCore.Application.Commands;
 
 public static class CommandServiceCollectionExtensions
 {
-    /// <summary>Registers the dispatcher and every handler in the assemblies, all scoped.</summary>
+    /// <summary>Registers the dispatcher, the validation behavior and every handler and validator in the assemblies, all scoped.</summary>
     public static IServiceCollection AddCommands(this IServiceCollection services, params Assembly[] assemblies)
     {
         ArgumentNullException.ThrowIfNull(services);
@@ -13,19 +14,21 @@ public static class CommandServiceCollectionExtensions
 
         // scoped, so handlers resolve from the caller's scope and not from the root provider
         services.AddScoped<ICommandDispatcher, CommandDispatcher>();
-        foreach (var (handler, contract) in Handlers(assemblies))
+        services.AddScoped(typeof(ICommandBehavior<,>), typeof(ValidationBehavior<,>));
+        foreach (var (implementation, contract) in Implementations(assemblies, typeof(ICommandHandler<,>), typeof(ICommandValidator<>)))
         {
-            services.AddScoped(contract, handler);
+            services.AddScoped(contract, implementation);
         }
 
         return services;
     }
 
-    private static IEnumerable<(Type Handler, Type Contract)> Handlers(IEnumerable<Assembly> assemblies) =>
+    private static IEnumerable<(Type Implementation, Type Contract)> Implementations(
+        IEnumerable<Assembly> assemblies, params Type[] openContracts) =>
         from assembly in assemblies
         from type in assembly.GetTypes()
         where type is { IsAbstract: false, IsGenericTypeDefinition: false }
         from contract in type.GetInterfaces()
-        where contract.IsGenericType && contract.GetGenericTypeDefinition() == typeof(ICommandHandler<,>)
+        where contract.IsGenericType && openContracts.Contains(contract.GetGenericTypeDefinition())
         select (type, contract);
 }
