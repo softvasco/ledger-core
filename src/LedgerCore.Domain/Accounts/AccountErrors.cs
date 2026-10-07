@@ -5,11 +5,15 @@ namespace LedgerCore.Domain.Accounts;
 
 public static class AccountErrors
 {
+    public const string NotFoundCode = "account.not_found";
+
     public const string InvalidStateCode = "account.invalid_state";
 
     public const string CurrencyMismatchCode = "account.currency_mismatch";
 
     public const string InsufficientFundsCode = "account.insufficient_funds";
+
+    public static DomainError NotFound(AccountId id) => new(NotFoundCode, $"Account {id} does not exist.");
 
     public static DomainError InvalidState(AccountId id, AccountStatus status, string action) =>
         new(InvalidStateCode, $"Account {id} is {status.ToString().ToLowerInvariant()} and can't be {action}.");
