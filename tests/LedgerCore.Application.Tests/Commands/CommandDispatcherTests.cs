@@ -69,6 +69,46 @@ public class CommandDispatcherTests
         await Assert.ThrowsAsync<ArgumentNullException>(() => dispatcher.DispatchAsync<int>(null!, Token));
     }
 
+    [Fact]
+    public async Task Behaviors_run_around_the_handler_in_registration_order()
+    {
+        var calls = new List<string>();
+        var dispatcher = Dispatcher(services => services
+            .AddSingleton(calls)
+            .AddScoped<ICommandHandler<Add, int>, AddHandler>()
+            .AddScoped<ICommandBehavior<Add, int>>(_ => new Recording("outer", calls))
+            .AddScoped<ICommandBehavior<Add, int>>(_ => new Recording("inner", calls)));
+
+        Assert.Equal(3, await dispatcher.DispatchAsync(new Add(1, 2), Token));
+        Assert.Equal(["outer before", "inner before", "inner after", "outer after"], calls);
+    }
+
+    [Fact]
+    public async Task A_behavior_can_answer_without_calling_the_handler()
+    {
+        var dispatcher = Dispatcher(services => services
+            .AddScoped<ICommandHandler<Add, int>, AddHandler>()
+            .AddScoped<ICommandBehavior<Add, int>, ShortCircuit>());
+
+        Assert.Equal(-1, await dispatcher.DispatchAsync(new Add(1, 2), Token));
+    }
+
+    [Fact]
+    public async Task An_open_generic_behavior_applies_to_every_command()
+    {
+        var calls = new List<string>();
+        var dispatcher = Dispatcher(services => services
+            .AddSingleton(calls)
+            .AddScoped<ICommandHandler<Add, int>, AddHandler>()
+            .AddScoped<ICommandHandler<Shout, string>, ShoutHandler>()
+            .AddScoped(typeof(ICommandBehavior<,>), typeof(NameRecorder<,>)));
+
+        await dispatcher.DispatchAsync(new Add(1, 2), Token);
+        await dispatcher.DispatchAsync(new Shout("hi"), Token);
+
+        Assert.Equal([nameof(Add), nameof(Shout)], calls);
+    }
+
     private static CommandDispatcher Dispatcher(Action<IServiceCollection> register)
     {
         var services = new ServiceCollection();
@@ -92,6 +132,33 @@ public class CommandDispatcherTests
         {
             cancellationToken.ThrowIfCancellationRequested();
             return Task.FromResult(command.Text.ToUpperInvariant());
+        }
+    }
+
+    private sealed class Recording(string name, List<string> calls) : ICommandBehavior<Add, int>
+    {
+        public async Task<int> HandleAsync(Add command, Func<Task<int>> continuation, CancellationToken cancellationToken)
+        {
+            calls.Add($"{name} before");
+            var result = await continuation();
+            calls.Add($"{name} after");
+            return result;
+        }
+    }
+
+    private sealed class ShortCircuit : ICommandBehavior<Add, int>
+    {
+        public Task<int> HandleAsync(Add command, Func<Task<int>> continuation, CancellationToken cancellationToken) =>
+            Task.FromResult(-1);
+    }
+
+    private sealed class NameRecorder<TCommand, TResult>(List<string> calls) : ICommandBehavior<TCommand, TResult>
+        where TCommand : ICommand<TResult>
+    {
+        public Task<TResult> HandleAsync(TCommand command, Func<Task<TResult>> continuation, CancellationToken cancellationToken)
+        {
+            calls.Add(typeof(TCommand).Name);
+            return continuation();
         }
     }
 }
