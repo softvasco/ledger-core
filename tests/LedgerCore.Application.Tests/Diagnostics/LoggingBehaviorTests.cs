@@ -57,9 +57,11 @@ public class LoggingBehaviorTests
 
     private async Task Dispatch(Transfer command)
     {
+        // the container doesn't dispose an instance it was handed, so this test owns it
+        using var loggerProvider = new FakeLoggerProvider(_logs);
         await using var provider = new ServiceCollection()
             .AddSingleton<TimeProvider>(_clock)
-            .AddLogging(logging => logging.AddProvider(new FakeLoggerProvider(_logs)))
+            .AddLogging(logging => logging.AddProvider(loggerProvider))
             .AddCommands(typeof(LoggingBehaviorTests).Assembly)
             .BuildServiceProvider();
         await using var scope = provider.CreateAsyncScope();
