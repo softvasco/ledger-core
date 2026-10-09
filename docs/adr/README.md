@@ -8,3 +8,4 @@
 | [0004](0004-double-entry-bookkeeping-model.md) | Double-entry bookkeeping model | Accepted |
 | [0005](0005-own-event-store-on-postgresql.md) | Own event store on PostgreSQL instead of Marten or KurrentDB | Accepted |
 | [0006](0006-balance-on-the-account-stream.md) | The account stream keeps the balance for the funds check | Accepted |
+| [0007](0007-own-command-and-query-dispatcher.md) | Own command and query dispatcher instead of MediatR | Accepted |
