@@ -5,7 +5,7 @@
 
 An event-sourced, double-entry banking ledger in .NET 10. Every movement debits one account and credits another, nothing is ever updated in place, and any balance can be rebuilt from the events that produced it.
 
-Work in progress. The domain model and the PostgreSQL event store are in place; the API and messaging are next.
+Work in progress. The domain model, the PostgreSQL event store and the command and query layer are in place; the HTTP API is next.
 
 ## Why
 
@@ -26,9 +26,12 @@ Done:
 - Event store on a single PostgreSQL table: optimistic concurrency per stream, and a global position that readers can follow without skipping a late commit.
 - Snapshots every N events (100 by default). They are only a cache: a missing or unreadable snapshot just means a longer replay.
 - Benchmarks for appends and stream reads, with the results in [docs/performance.md](docs/performance.md).
+- Commands and queries through a small hand-written dispatcher, one handler per message ([ADR-0007](docs/adr/0007-own-command-and-query-dispatcher.md)). Commands run through tracing, logging and validation behaviors; validation reports every error at once.
+- Deposit and Withdraw with the balance kept on the account stream, so two racing withdrawals can't both pass the funds check ([ADR-0006](docs/adr/0006-balance-on-the-account-stream.md)).
+- An account read model built by a pure projection that follows the store's global position.
 
 Coming next:
-- CQRS with a small hand-written dispatcher, minimal API with ProblemDetails and idempotency keys.
+- Minimal API with ProblemDetails, OpenAPI and idempotency keys, then the same API as MCP tools.
 - Transfers as a process manager, transactional outbox, Azure Service Bus.
 - Read models on SQL Server, .NET Aspire, OpenTelemetry, and a Blazor back office.
 
@@ -47,6 +50,36 @@ flowchart LR
 ```
 
 The Domain project has no dependencies at all. Application talks to the outside world only through interfaces it owns, and Infrastructure implements them. Design decisions are in [docs/adr](docs/adr/README.md), starting with [why the ledger is event sourced](docs/adr/0002-event-sourcing-for-the-ledger.md).
+
+## How a command and a query flow
+
+```mermaid
+sequenceDiagram
+    participant C as Caller
+    participant D as CommandDispatcher
+    participant B as Behaviors<br/>tracing, logging, validation
+    participant H as WithdrawHandler
+    participant R as AccountRepository
+    participant S as Event store
+    participant P as Projection
+    participant Q as QueryDispatcher
+
+    C->>D: Withdraw(accountId, 40.50 EUR)
+    D->>B: run behaviors in order
+    B->>H: valid command
+    H->>R: load account
+    R->>S: snapshot + later events
+    H->>H: Account.Withdraw (funds check)
+    H->>R: save
+    R->>S: append at expected version
+    H-->>C: Result with the new balance
+    S-->>P: events in global order
+    P->>P: fold into AccountSummary
+    C->>Q: GetAccount(accountId)
+    Q-->>C: summary as of the projection's checkpoint
+```
+
+The write side answers from the account stream, so a withdrawal never sees a stale balance. The read side catches up after the append and can lag behind it; a query returns whatever the projection has seen so far.
 
 ## Quickstart
 
