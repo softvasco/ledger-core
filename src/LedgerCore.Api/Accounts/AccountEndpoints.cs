@@ -1,3 +1,4 @@
+using LedgerCore.Api.Problems;
 using LedgerCore.Application.Accounts;
 using LedgerCore.Application.Commands;
 using LedgerCore.Application.Queries;
@@ -46,14 +47,14 @@ internal static class AccountEndpoints
     }
 
     // the read model catches up in the background, so a GET right after opening can still be a 404
-    private static async Task<Results<Ok<AccountResponse>, NotFound>> GetAsync(
+    private static async Task<Results<Ok<AccountResponse>, ProblemHttpResult>> GetAsync(
         AccountId id, IQueryDispatcher queries, CancellationToken cancellationToken)
     {
         var summary = await queries.DispatchAsync(new GetAccount(id), cancellationToken);
-        return summary is null ? TypedResults.NotFound() : TypedResults.Ok(AccountResponse.From(summary));
+        return summary is null ? AccountErrors.NotFound(id).ToProblem() : TypedResults.Ok(AccountResponse.From(summary));
     }
 
-    private static async Task<Results<Ok<BalanceResponse>, ValidationProblem, NotFound, Conflict<DomainError>>> DepositAsync(
+    private static async Task<Results<Ok<BalanceResponse>, ValidationProblem, ProblemHttpResult>> DepositAsync(
         AccountId id, AmountRequest request, ICommandDispatcher commands, CancellationToken cancellationToken)
     {
         var errors = new Dictionary<string, string[]>();
@@ -65,7 +66,7 @@ internal static class AccountEndpoints
         return Answer(await commands.DispatchAsync(new Deposit(id, amount), cancellationToken));
     }
 
-    private static async Task<Results<Ok<BalanceResponse>, ValidationProblem, NotFound, Conflict<DomainError>>> WithdrawAsync(
+    private static async Task<Results<Ok<BalanceResponse>, ValidationProblem, ProblemHttpResult>> WithdrawAsync(
         AccountId id, AmountRequest request, ICommandDispatcher commands, CancellationToken cancellationToken)
     {
         var errors = new Dictionary<string, string[]>();
@@ -95,18 +96,8 @@ internal static class AccountEndpoints
         return Money.Of(request.Amount, currency);
     }
 
-    private static Results<Ok<BalanceResponse>, ValidationProblem, NotFound, Conflict<DomainError>> Answer(Result<Money> result)
+    private static Results<Ok<BalanceResponse>, ValidationProblem, ProblemHttpResult> Answer(Result<Money> result)
     {
-        if (result.IsSuccess)
-        {
-            return TypedResults.Ok(BalanceResponse.From(result.Value));
-        }
-
-        if (result.Error.Code == AccountErrors.NotFoundCode)
-        {
-            return TypedResults.NotFound();
-        }
-
-        return TypedResults.Conflict(result.Error);
+        return result.IsSuccess ? TypedResults.Ok(BalanceResponse.From(result.Value)) : result.Error.ToProblem();
     }
 }

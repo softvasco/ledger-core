@@ -42,30 +42,46 @@ public sealed class AccountEndpointTests : IAsyncDisposable
     }
 
     [Fact]
-    public async Task Overdrawing_is_a_conflict_with_the_error_code()
+    public async Task Overdrawing_is_a_conflict_problem_with_the_error_code()
     {
         var id = await OpenAsync();
 
         var response = await PostAmountAsync(id, "withdrawals", 10m);
 
         Assert.Equal(HttpStatusCode.Conflict, response.StatusCode);
-        Assert.Contains("account.insufficient_funds", await response.Content.ReadAsStringAsync(Token), StringComparison.Ordinal);
+        var problem = await ReadProblemAsync(response);
+        Assert.Equal(409, problem.Status);
+        Assert.Equal("account.insufficient_funds", problem.Extensions["code"]?.ToString());
+        Assert.Contains("less than the", problem.Detail, StringComparison.Ordinal);
     }
 
     [Fact]
-    public async Task Money_on_an_unknown_account_is_404()
+    public async Task Money_in_another_currency_is_422()
+    {
+        var id = await OpenAsync();
+
+        var response = await _client.PostAsJsonAsync($"/accounts/{id}/deposits", new AmountRequest(5m, "USD"), Token);
+
+        Assert.Equal(HttpStatusCode.UnprocessableEntity, response.StatusCode);
+        Assert.Equal("account.currency_mismatch", (await ReadProblemAsync(response)).Extensions["code"]?.ToString());
+    }
+
+    [Fact]
+    public async Task Money_on_an_unknown_account_is_a_404_problem()
     {
         var response = await PostAmountAsync(Guid.CreateVersion7(), "deposits", 1m);
 
         Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("account.not_found", (await ReadProblemAsync(response)).Extensions["code"]?.ToString());
     }
 
     [Fact]
-    public async Task A_malformed_account_id_is_400()
+    public async Task Reading_an_unknown_account_is_a_404_problem()
     {
-        var response = await _client.GetAsync("/accounts/not-an-id", Token);
+        var response = await _client.GetAsync($"/accounts/{Guid.CreateVersion7()}", Token);
 
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("account.not_found", (await ReadProblemAsync(response)).Extensions["code"]?.ToString());
     }
 
     [Fact]
@@ -114,6 +130,12 @@ public sealed class AccountEndpointTests : IAsyncDisposable
         var response = await _client.PostAsJsonAsync("/accounts", new OpenAccountRequest(SomeIban, "EUR"), Token);
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<AccountOpenedResponse>(Token))!.Id;
+    }
+
+    private static async Task<ProblemDetails> ReadProblemAsync(HttpResponseMessage response)
+    {
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        return (await response.Content.ReadFromJsonAsync<ProblemDetails>(Token))!;
     }
 
     private Task<HttpResponseMessage> PostAmountAsync(Guid id, string kind, decimal amount) =>

@@ -29,9 +29,10 @@ Done:
 - Commands and queries through a small hand-written dispatcher, one handler per message ([ADR-0007](docs/adr/0007-own-command-and-query-dispatcher.md)). Commands run through tracing, logging and validation behaviors; validation reports every error at once.
 - Deposit and Withdraw with the balance kept on the account stream, so two racing withdrawals can't both pass the funds check ([ADR-0006](docs/adr/0006-balance-on-the-account-stream.md)).
 - An account read model built by a pure projection that follows the store's global position.
+- Account endpoints on a minimal API. Every error is an RFC 9457 problem with a stable `code` to branch on, for example a 409 with `account.insufficient_funds` when a withdrawal is more than the balance ([ADR-0008](docs/adr/0008-problem-details-for-every-error.md)).
 
 Coming next:
-- Minimal API with ProblemDetails, OpenAPI and idempotency keys, then the same API as MCP tools.
+- OpenAPI and idempotency keys on the API, then the same API as MCP tools.
 - Transfers as a process manager, transactional outbox, Azure Service Bus.
 - Read models on SQL Server, .NET Aspire, OpenTelemetry, and a Blazor back office.
 
