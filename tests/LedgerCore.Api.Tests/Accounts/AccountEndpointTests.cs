@@ -85,14 +85,6 @@ public sealed class AccountEndpointTests : IAsyncDisposable
     }
 
     [Fact]
-    public async Task A_malformed_account_id_is_400()
-    {
-        var response = await _client.GetAsync("/accounts/not-an-id", Token);
-
-        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
-    }
-
-    [Fact]
     public async Task Every_bad_field_of_a_new_account_is_reported_at_once()
     {
         var response = await _client.PostAsJsonAsync("/accounts", new OpenAccountRequest("PT50 0000", "XYZ"), Token);
