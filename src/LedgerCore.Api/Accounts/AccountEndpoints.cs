@@ -16,12 +16,37 @@ internal static class AccountEndpoints
     public static IEndpointRouteBuilder MapAccounts(this IEndpointRouteBuilder routes)
     {
         var accounts = routes.MapGroup("/accounts").WithTags("Accounts");
-        accounts.MapPost("/", OpenAsync);
-        accounts.MapGet("/{id}", GetAsync).WithName(GetAccountRoute);
-        accounts.MapPost("/{id}/deposits", DepositAsync);
-        accounts.MapPost("/{id}/withdrawals", WithdrawAsync);
+        accounts.MapPost("/", OpenAsync)
+            .WithName("OpenAccount")
+            .WithSummary("Open an account in one currency")
+            .ProducesProblem(StatusCodes.Status409Conflict);
+
+        // a malformed id fails route binding, which answers 400 before the handler runs
+        accounts.MapGet("/{id}", GetAsync)
+            .WithName(GetAccountRoute)
+            .WithSummary("Read an account's balance and status")
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
+        accounts.MapPost("/{id}/deposits", DepositAsync)
+            .WithName("Deposit")
+            .WithSummary("Credit an account")
+            .ProducesCommandProblems();
+
+        accounts.MapPost("/{id}/withdrawals", WithdrawAsync)
+            .WithName("Withdraw")
+            .WithSummary("Debit an account")
+            .ProducesCommandProblems();
+
         return routes;
     }
+
+    // the statuses DomainProblems can pick for a refused command, plus the concurrency conflict
+    private static RouteHandlerBuilder ProducesCommandProblems(this RouteHandlerBuilder endpoint) =>
+        endpoint
+            .ProducesProblem(StatusCodes.Status404NotFound)
+            .ProducesProblem(StatusCodes.Status409Conflict)
+            .ProducesProblem(StatusCodes.Status422UnprocessableEntity);
 
     private static async Task<Results<CreatedAtRoute<AccountOpenedResponse>, ValidationProblem>> OpenAsync(
         OpenAccountRequest request, ICommandDispatcher commands, CancellationToken cancellationToken)

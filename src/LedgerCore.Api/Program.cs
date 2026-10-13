@@ -1,4 +1,5 @@
 using LedgerCore.Api.Accounts;
+using LedgerCore.Api.OpenApi;
 using LedgerCore.Api.Problems;
 using LedgerCore.Application.Accounts;
 using LedgerCore.Application.Commands;
@@ -9,12 +10,14 @@ using LedgerCore.Domain.Accounts;
 using LedgerCore.Infrastructure.Accounts;
 using LedgerCore.Infrastructure.EventStore;
 using LedgerCore.Infrastructure.Snapshots;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Services.AddHealthChecks();
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ProblemExceptionHandler>();
+builder.Services.AddLedgerOpenApi();
 
 // in memory until the PostgreSQL stores are wired to configuration
 builder.Services.AddSingleton<IEventStore, InMemoryEventStore>();
@@ -31,6 +34,12 @@ var app = builder.Build();
 
 app.UseExceptionHandler();
 app.UseStatusCodePages();
+
+app.MapOpenApi();
+if (app.Environment.IsDevelopment())
+{
+    app.MapScalarApiReference();
+}
 
 app.MapHealthChecks("/health");
 app.MapAccounts();
