@@ -15,6 +15,11 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddHealthChecks();
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ProblemExceptionHandler>();
+builder.Services.AddOpenApi(options => options.AddDocumentTransformer((document, _, _) =>
+{
+    document.Info.Title = "ledger-core API";
+    return Task.CompletedTask;
+}));
 
 // in memory until the PostgreSQL stores are wired to configuration
 builder.Services.AddSingleton<IEventStore, InMemoryEventStore>();
@@ -32,6 +37,7 @@ var app = builder.Build();
 app.UseExceptionHandler();
 app.UseStatusCodePages();
 
+app.MapOpenApi();
 app.MapHealthChecks("/health");
 app.MapAccounts();
 
