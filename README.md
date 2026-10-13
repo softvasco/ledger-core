@@ -30,9 +30,10 @@ Done:
 - Deposit and Withdraw with the balance kept on the account stream, so two racing withdrawals can't both pass the funds check ([ADR-0006](docs/adr/0006-balance-on-the-account-stream.md)).
 - An account read model built by a pure projection that follows the store's global position.
 - Account endpoints on a minimal API. Every error is an RFC 9457 problem with a stable `code` to branch on, for example a 409 with `account.insufficient_funds` when a withdrawal is more than the balance ([ADR-0008](docs/adr/0008-problem-details-for-every-error.md)).
+- An OpenAPI 3.1 document at `/openapi/v1.json` that lists every status an endpoint can answer, and a Scalar UI at `/scalar` in development.
 
 Coming next:
-- OpenAPI and idempotency keys on the API, then the same API as MCP tools.
+- Idempotency keys on the API, then the same API as MCP tools.
 - Transfers as a process manager, transactional outbox, Azure Service Bus.
 - Read models on SQL Server, .NET Aspire, OpenTelemetry, and a Blazor back office.
 
@@ -84,12 +85,13 @@ The write side answers from the account stream, so a withdrawal never sees a sta
 
 ## Quickstart
 
-For now:
-
 ```bash
 dotnet build
 dotnet test
+dotnet run --project src/LedgerCore.Api
 ```
+
+The API keeps everything in memory for now. Open http://localhost:5174/scalar to open an account and post deposits and withdrawals.
 
 Needs the .NET 10 SDK, and Docker for the PostgreSQL tests (Testcontainers starts the database). A one-command run with .NET Aspire comes once there is infrastructure to run.
 
