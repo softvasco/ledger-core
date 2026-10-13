@@ -65,6 +65,20 @@ public sealed class OpenApiDocumentTests : IAsyncDisposable
     }
 
     [Theory]
+    [InlineData("/accounts/{id}", "get")]
+    [InlineData("/accounts/{id}/deposits", "post")]
+    [InlineData("/accounts/{id}/withdrawals", "post")]
+    public async Task Account_ids_in_the_path_are_documented_as_uuids(string path, string method)
+    {
+        using var document = await ReadDocumentAsync();
+
+        var id = Operation(document, path, method).GetProperty("parameters").EnumerateArray()
+            .Single(p => p.GetProperty("name").GetString() == "id");
+
+        Assert.Equal("uuid", id.GetProperty("schema").GetProperty("format").GetString());
+    }
+
+    [Theory]
     [InlineData("Development", HttpStatusCode.OK)]
     [InlineData("Production", HttpStatusCode.NotFound)]
     public async Task The_reference_ui_is_only_served_in_development(string environment, HttpStatusCode expected)
