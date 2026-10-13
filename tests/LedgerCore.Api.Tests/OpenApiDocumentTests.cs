@@ -1,5 +1,6 @@
 using System.Net;
 using System.Text.Json;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 
 namespace LedgerCore.Api.Tests;
@@ -61,6 +62,18 @@ public sealed class OpenApiDocumentTests : IAsyncDisposable
             Assert.False(string.IsNullOrWhiteSpace(op.Value.GetProperty("summary").GetString()));
             Assert.False(string.IsNullOrWhiteSpace(op.Value.GetProperty("operationId").GetString()));
         });
+    }
+
+    [Theory]
+    [InlineData("Development", HttpStatusCode.OK)]
+    [InlineData("Production", HttpStatusCode.NotFound)]
+    public async Task The_reference_ui_is_only_served_in_development(string environment, HttpStatusCode expected)
+    {
+        using var client = _factory.WithWebHostBuilder(host => host.UseEnvironment(environment)).CreateClient();
+
+        var response = await client.GetAsync("/scalar/", Token);
+
+        Assert.Equal(expected, response.StatusCode);
     }
 
     public async ValueTask DisposeAsync() => await _factory.DisposeAsync();

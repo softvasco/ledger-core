@@ -9,6 +9,7 @@ using LedgerCore.Domain.Accounts;
 using LedgerCore.Infrastructure.Accounts;
 using LedgerCore.Infrastructure.EventStore;
 using LedgerCore.Infrastructure.Snapshots;
+using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -38,6 +39,11 @@ app.UseExceptionHandler();
 app.UseStatusCodePages();
 
 app.MapOpenApi();
+if (app.Environment.IsDevelopment())
+{
+    app.MapScalarApiReference();
+}
+
 app.MapHealthChecks("/health");
 app.MapAccounts();
 
