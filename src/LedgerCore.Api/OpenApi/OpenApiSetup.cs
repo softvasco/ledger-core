@@ -22,12 +22,14 @@ internal static class OpenApiSetup
                     .Select(p => p.Name)
                     .ToHashSet(StringComparer.Ordinal);
 
-                foreach (var parameter in operation.Parameters ?? [])
+                var schemas = (operation.Parameters ?? [])
+                    .Where(p => accountIds.Contains(p.Name!))
+                    .Select(p => p.Schema)
+                    .OfType<OpenApiSchema>();
+
+                foreach (var schema in schemas)
                 {
-                    if (accountIds.Contains(parameter.Name!) && parameter.Schema is OpenApiSchema schema)
-                    {
-                        schema.Format = "uuid";
-                    }
+                    schema.Format = "uuid";
                 }
 
                 return Task.CompletedTask;
