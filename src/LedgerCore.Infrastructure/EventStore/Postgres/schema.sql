@@ -17,3 +17,13 @@ create table if not exists snapshots (
     taken_at timestamptz not null default now(),
     primary key (stream_category, stream_id)
 );
+
+create table if not exists idempotency_keys (
+    key text primary key,
+    fingerprint bytea not null,
+    claimed_at timestamptz not null,
+    status_code int,
+    content_type text,
+    location text,
+    body bytea
+);
