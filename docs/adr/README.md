@@ -10,3 +10,4 @@
 | [0006](0006-balance-on-the-account-stream.md) | The account stream keeps the balance for the funds check | Accepted |
 | [0007](0007-own-command-and-query-dispatcher.md) | Own command and query dispatcher instead of MediatR | Accepted |
 | [0008](0008-problem-details-for-every-error.md) | Problem details for every error response | Accepted |
+| [0009](0009-idempotency-keys-for-post.md) | Idempotency keys for POST requests | Accepted |
