@@ -79,6 +79,27 @@ public sealed class OpenApiDocumentTests : IAsyncDisposable
     }
 
     [Theory]
+    [InlineData("/accounts", "post", true)]
+    [InlineData("/accounts/{id}/deposits", "post", true)]
+    [InlineData("/accounts/{id}/withdrawals", "post", true)]
+    [InlineData("/accounts/{id}", "get", false)]
+    public async Task Posts_document_the_optional_idempotency_key(string path, string method, bool expected)
+    {
+        using var document = await ReadDocumentAsync();
+
+        var parameters = Operation(document, path, method).GetProperty("parameters").EnumerateArray().ToList();
+        var key = parameters.SingleOrDefault(p => p.GetProperty("name").GetString() == "Idempotency-Key");
+
+        Assert.Equal(expected, key.ValueKind != JsonValueKind.Undefined);
+        if (expected)
+        {
+            Assert.Equal("header", key.GetProperty("in").GetString());
+            Assert.False(key.TryGetProperty("required", out var required) && required.GetBoolean());
+            Assert.Equal(255, key.GetProperty("schema").GetProperty("maxLength").GetInt32());
+        }
+    }
+
+    [Theory]
     [InlineData("Development", HttpStatusCode.OK)]
     [InlineData("Production", HttpStatusCode.NotFound)]
     public async Task The_reference_ui_is_only_served_in_development(string environment, HttpStatusCode expected)

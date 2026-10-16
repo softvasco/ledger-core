@@ -15,7 +15,7 @@ internal sealed class IdempotencyMiddleware(RequestDelegate next, IIdempotencySt
     public const string InProgressCode = "idempotency.in_progress";
     public const string KeyReusedCode = "idempotency.key_reused";
 
-    private const int MaxKeyLength = 255;
+    public const int MaxKeyLength = 255;
 
     public async Task InvokeAsync(HttpContext context)
     {
