@@ -4,13 +4,9 @@ using LedgerCore.Infrastructure.Tests.EventStore;
 
 namespace LedgerCore.Infrastructure.Tests.Idempotency;
 
-public class PostgresIdempotencyStoreTests : IdempotencyStoreContract, IClassFixture<PostgresFixture>
+public class PostgresIdempotencyStoreTests(PostgresFixture fixture)
+    : IdempotencyStoreContract(time => new PostgresIdempotencyStore(fixture.DataSource, Options, time)), IClassFixture<PostgresFixture>
 {
-    public PostgresIdempotencyStoreTests(PostgresFixture fixture) =>
-        Store = new PostgresIdempotencyStore(fixture.DataSource, Options, Time);
-
-    protected override IIdempotencyStore Store { get; }
-
     [Fact]
     public async Task Only_one_of_many_concurrent_claims_wins()
     {

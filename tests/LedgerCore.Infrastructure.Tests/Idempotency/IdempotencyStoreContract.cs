@@ -14,11 +14,17 @@ public abstract class IdempotencyStoreContract
     private static readonly byte[] Fingerprint = [1, 2, 3];
     private static readonly StoredResponse Created = new(201, "application/json", "/accounts/1", "{\"id\":1}"u8.ToArray());
 
+    protected IdempotencyStoreContract(Func<TimeProvider, IIdempotencyStore> createStore)
+    {
+        ArgumentNullException.ThrowIfNull(createStore);
+        Store = createStore(Time);
+    }
+
     protected FakeTimeProvider Time { get; } = new(new DateTimeOffset(2026, 10, 16, 20, 0, 0, TimeSpan.Zero));
 
     protected static CancellationToken Token => TestContext.Current.CancellationToken;
 
-    protected abstract IIdempotencyStore Store { get; }
+    protected IIdempotencyStore Store { get; }
 
     [Fact]
     public async Task A_new_key_is_claimed()
