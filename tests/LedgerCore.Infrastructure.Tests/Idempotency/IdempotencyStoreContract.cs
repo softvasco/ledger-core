@@ -12,7 +12,7 @@ public abstract class IdempotencyStoreContract
     };
 
     private static readonly byte[] Fingerprint = [1, 2, 3];
-    private static readonly StoredResponse Created = new(201, "application/json", "{\"id\":1}"u8.ToArray());
+    private static readonly StoredResponse Created = new(201, "application/json", "/accounts/1", "{\"id\":1}"u8.ToArray());
 
     protected FakeTimeProvider Time { get; } = new(new DateTimeOffset(2026, 10, 16, 20, 0, 0, TimeSpan.Zero));
 
@@ -45,6 +45,7 @@ public abstract class IdempotencyStoreContract
         var claim = Assert.IsType<IdempotencyClaim.Completed>(await Store.ClaimAsync(key, Fingerprint, Token));
         Assert.Equal(Created.StatusCode, claim.Response.StatusCode);
         Assert.Equal(Created.ContentType, claim.Response.ContentType);
+        Assert.Equal(Created.Location, claim.Response.Location);
         Assert.Equal(Created.Body, claim.Response.Body);
     }
 
