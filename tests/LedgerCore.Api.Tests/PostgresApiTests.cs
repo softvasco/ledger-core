@@ -64,9 +64,7 @@ public sealed class PostgresApiTests(PostgresContainer database) : IClassFixture
         Assert.Equal(50m, await BalanceAsync(second, account));
     }
 
-    private WebApplicationFactory<Program> StartApi() =>
-        new WebApplicationFactory<Program>().WithWebHostBuilder(host =>
-            host.UseSetting("ConnectionStrings:Ledger", database.ConnectionString));
+    private PostgresApi StartApi() => new(database.ConnectionString);
 
     private static async Task<Guid> OpenAsync(HttpClient client)
     {
@@ -90,5 +88,11 @@ public sealed class PostgresApiTests(PostgresContainer database) : IClassFixture
         using var client = api.CreateClient();
         await api.Services.GetRequiredService<InMemoryAccountSummaries>().CatchUpAsync(Token);
         return (await client.GetFromJsonAsync<AccountResponse>($"/accounts/{account}", Token))!.Balance;
+    }
+
+    private sealed class PostgresApi(string connectionString) : WebApplicationFactory<Program>
+    {
+        protected override void ConfigureWebHost(IWebHostBuilder builder) =>
+            builder.UseSetting("ConnectionStrings:Ledger", connectionString);
     }
 }
