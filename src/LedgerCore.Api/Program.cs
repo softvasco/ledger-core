@@ -2,17 +2,13 @@ using LedgerCore.Api.Accounts;
 using LedgerCore.Api.Idempotency;
 using LedgerCore.Api.OpenApi;
 using LedgerCore.Api.Problems;
+using LedgerCore.Api.Storage;
 using LedgerCore.Application.Accounts;
 using LedgerCore.Application.Commands;
-using LedgerCore.Application.EventStore;
 using LedgerCore.Application.Idempotency;
 using LedgerCore.Application.Queries;
 using LedgerCore.Application.Snapshots;
-using LedgerCore.Domain.Accounts;
 using LedgerCore.Infrastructure.Accounts;
-using LedgerCore.Infrastructure.EventStore;
-using LedgerCore.Infrastructure.Idempotency;
-using LedgerCore.Infrastructure.Snapshots;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -23,10 +19,7 @@ builder.Services.AddExceptionHandler<ProblemExceptionHandler>();
 builder.Services.AddLedgerOpenApi();
 builder.Services.AddSingleton(TimeProvider.System);
 
-// in memory until the PostgreSQL stores are wired to configuration
-builder.Services.AddSingleton<IEventStore, InMemoryEventStore>();
-builder.Services.AddSingleton<ISnapshotStore<AccountSnapshot>, InMemorySnapshotStore<AccountSnapshot>>();
-builder.Services.AddSingleton<IIdempotencyStore, InMemoryIdempotencyStore>();
+builder.Services.AddLedgerStorage(builder.Configuration);
 builder.Services.AddSingleton(new IdempotencyOptions());
 builder.Services.AddSingleton(new SnapshotPolicy(100));
 builder.Services.AddSingleton<InMemoryAccountSummaries>();
