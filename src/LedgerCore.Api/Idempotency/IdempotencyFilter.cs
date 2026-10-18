@@ -130,9 +130,8 @@ internal static class IdempotencyFilter
 
         using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
         hash.AppendData(Encoding.UTF8.GetBytes($"{context.HttpContext.Request.Method} {context.HttpContext.Request.Path}\n"));
-        foreach (var position in requestArguments)
+        foreach (var argument in requestArguments.Select(position => context.Arguments[position]))
         {
-            var argument = context.Arguments[position];
             hash.AppendData(argument is null ? "null"u8 : JsonSerializer.SerializeToUtf8Bytes(argument, argument.GetType(), json));
             hash.AppendData("\n"u8);
         }
