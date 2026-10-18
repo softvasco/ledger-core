@@ -11,3 +11,4 @@
 | [0007](0007-own-command-and-query-dispatcher.md) | Own command and query dispatcher instead of MediatR | Accepted |
 | [0008](0008-problem-details-for-every-error.md) | Problem details for every error response | Accepted |
 | [0009](0009-idempotency-keys-for-post.md) | Idempotency keys for POST requests | Accepted |
+| [0010](0010-idempotency-as-an-endpoint-filter.md) | Idempotency as an endpoint filter, so in-process callers get it | Accepted |

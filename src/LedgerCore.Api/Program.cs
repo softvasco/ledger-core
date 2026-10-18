@@ -1,5 +1,4 @@
 using LedgerCore.Api.Accounts;
-using LedgerCore.Api.Idempotency;
 using LedgerCore.Api.OpenApi;
 using LedgerCore.Api.Problems;
 using LedgerCore.Api.Storage;
@@ -33,7 +32,6 @@ var app = builder.Build();
 
 app.UseExceptionHandler();
 app.UseStatusCodePages();
-app.UseMiddleware<IdempotencyMiddleware>();
 
 app.MapOpenApi();
 if (app.Environment.IsDevelopment())

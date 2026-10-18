@@ -1,12 +1,16 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using LedgerCore.Api.Accounts;
 using LedgerCore.Application.EventStore;
 using LedgerCore.Domain.Abstractions;
 using LedgerCore.Infrastructure.Accounts;
 using LedgerCore.Infrastructure.EventStore;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Http.Features;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Testing;
+using Microsoft.AspNetCore.Routing;
 using Microsoft.Extensions.DependencyInjection;
 
 namespace LedgerCore.Api.Tests;
@@ -114,6 +118,24 @@ public sealed class IdempotencyTests : IAsyncDisposable
         Assert.False(retry.Headers.Contains("Idempotent-Replayed"));
     }
 
+    // an MCP host calls the endpoint's delegate directly, with no middleware in front of it
+    [Fact]
+    public async Task A_retry_that_skips_the_middleware_pipeline_still_credits_once()
+    {
+        using var client = _factory.CreateClient();
+        var account = await OpenAsync(client);
+        var deposit = _factory.Services.GetRequiredService<EndpointDataSource>().Endpoints
+            .OfType<RouteEndpoint>()
+            .Single(e => e.Metadata.GetMetadata<IEndpointNameMetadata>()?.EndpointName == "Deposit");
+
+        var first = await InvokeInProcessAsync(deposit, account, new AmountRequest(50m, "EUR"), "deposit-4");
+        var retry = await InvokeInProcessAsync(deposit, account, new AmountRequest(50m, "EUR"), "deposit-4");
+
+        Assert.Equal(StatusCodes.Status200OK, first.Response.StatusCode);
+        Assert.Equal("true", retry.Response.Headers["Idempotent-Replayed"]);
+        Assert.Equal(50m, await BalanceAsync(client, account));
+    }
+
     public async ValueTask DisposeAsync() => await _factory.DisposeAsync();
 
     private static async Task<HttpResponseMessage> PostAsync<T>(HttpClient client, string path, T body, string key)
@@ -136,6 +158,25 @@ public sealed class IdempotencyTests : IAsyncDisposable
         return (await client.GetFromJsonAsync<AccountResponse>($"/accounts/{account}", Token))!.Balance;
     }
 
+    private async Task<HttpContext> InvokeInProcessAsync(RouteEndpoint endpoint, Guid account, AmountRequest body, string key)
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        var context = new DefaultHttpContext { RequestServices = scope.ServiceProvider, RequestAborted = Token };
+        context.Features.Set<IHttpRequestBodyDetectionFeature>(new HasBody());
+
+        var request = context.Request;
+        request.Method = HttpMethods.Post;
+        request.Path = $"/accounts/{account}/deposits";
+        request.RouteValues["id"] = account.ToString();
+        request.Headers["Idempotency-Key"] = key;
+        request.ContentType = "application/json";
+        request.Body = new MemoryStream(JsonSerializer.SerializeToUtf8Bytes(body, JsonSerializerOptions.Web));
+        context.Response.Body = new MemoryStream();
+
+        await endpoint.RequestDelegate!(context);
+        return context;
+    }
+
     private static async Task<string?> CodeAsync(HttpResponseMessage response) =>
         (await response.Content.ReadFromJsonAsync<ProblemDetails>(Token))!.Extensions["code"]?.ToString();
 
@@ -155,5 +196,10 @@ public sealed class IdempotencyTests : IAsyncDisposable
 
         public IAsyncEnumerable<RecordedEvent> ReadAllAsync(long afterPosition = 0, CancellationToken cancellationToken = default) =>
             inner.ReadAllAsync(afterPosition, cancellationToken);
+    }
+
+    private sealed class HasBody : IHttpRequestBodyDetectionFeature
+    {
+        public bool CanHaveBody => true;
     }
 }

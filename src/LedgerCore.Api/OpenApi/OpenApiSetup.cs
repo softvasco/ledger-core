@@ -36,7 +36,7 @@ internal static class OpenApiSetup
                 return Task.CompletedTask;
             });
 
-            // the header is read by IdempotencyMiddleware, so no endpoint declares it
+            // the header is read by IdempotencyFilter, so no endpoint declares it
             options.AddOperationTransformer((operation, context, _) =>
             {
                 if (HttpMethods.IsPost(context.Description.HttpMethod ?? string.Empty))
@@ -51,11 +51,11 @@ internal static class OpenApiSetup
 
     private static readonly OpenApiParameter IdempotencyKey = new()
     {
-        Name = IdempotencyMiddleware.KeyHeader,
+        Name = IdempotencyFilter.KeyHeader,
         In = ParameterLocation.Header,
         Required = false,
         Description = "Send the same key to retry safely: a repeat gets the first response back. "
             + "The same key for a different request is a 422, and one still running is a 409.",
-        Schema = new OpenApiSchema { Type = JsonSchemaType.String, MinLength = 1, MaxLength = IdempotencyMiddleware.MaxKeyLength },
+        Schema = new OpenApiSchema { Type = JsonSchemaType.String, MinLength = 1, MaxLength = IdempotencyFilter.MaxKeyLength },
     };
 }

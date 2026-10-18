@@ -4,7 +4,7 @@ Date: 2026-10-16
 
 ## Status
 
-Accepted
+Accepted. Moved from a middleware to an endpoint filter in [ADR-0010](0010-idempotency-as-an-endpoint-filter.md).
 
 ## Context
 
