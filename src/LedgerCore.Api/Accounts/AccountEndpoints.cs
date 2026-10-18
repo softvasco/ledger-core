@@ -1,3 +1,4 @@
+using LedgerCore.Api.Idempotency;
 using LedgerCore.Api.Problems;
 using LedgerCore.Application.Accounts;
 using LedgerCore.Application.Commands;
@@ -15,7 +16,7 @@ internal static class AccountEndpoints
 
     public static IEndpointRouteBuilder MapAccounts(this IEndpointRouteBuilder routes)
     {
-        var accounts = routes.MapGroup("/accounts").WithTags("Accounts");
+        var accounts = routes.MapGroup("/accounts").WithTags("Accounts").WithIdempotencyKeys();
         accounts.MapPost("/", OpenAsync)
             .WithName("OpenAccount")
             .WithSummary("Open an account in one currency")
