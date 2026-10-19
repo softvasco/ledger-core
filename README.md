@@ -31,6 +31,7 @@ Done:
 - An account read model built by a pure projection that follows the store's global position.
 - Account endpoints on a minimal API. Every error is an RFC 9457 problem with a stable `code` to branch on, for example a 409 with `account.insufficient_funds` when a withdrawal is more than the balance ([ADR-0008](docs/adr/0008-problem-details-for-every-error.md)).
 - An OpenAPI 3.1 document at `/openapi/v1.json` that lists every status an endpoint can answer, and a Scalar UI at `/scalar` in development.
+- What counts as the API contract, which changes break it, and how a v2 would sit next to v1: [docs/api.md](docs/api.md).
 
 Coming next:
 - Idempotency keys on the API, then the same API as MCP tools.
