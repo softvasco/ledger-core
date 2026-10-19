@@ -1,0 +1,105 @@
+@baseUrl = http://localhost:5174
+
+# Run the API first: dotnet run --project src/LedgerCore.Api
+# Requests run top to bottom; later ones use the id from "open".
+
+# @name open
+POST {{baseUrl}}/accounts
+Content-Type: application/json
+Idempotency-Key: open-pt50-1
+
+{
+  "iban": "PT50 0002 0123 1234 5678 9015 4",
+  "currency": "EUR"
+}
+
+###
+
+# the summary is built in the background, so this can be a 404 for a moment after opening
+GET {{baseUrl}}/accounts/{{open.response.body.$.id}}
+
+###
+
+POST {{baseUrl}}/accounts/{{open.response.body.$.id}}/deposits
+Content-Type: application/json
+Idempotency-Key: deposit-1
+
+{
+  "amount": 100.00,
+  "currency": "EUR"
+}
+
+###
+
+# same key and body again: the stored response comes back and nothing is credited twice
+POST {{baseUrl}}/accounts/{{open.response.body.$.id}}/deposits
+Content-Type: application/json
+Idempotency-Key: deposit-1
+
+{
+  "amount": 100.00,
+  "currency": "EUR"
+}
+
+###
+
+# same key, different body: 422 with code idempotency.key_reused
+POST {{baseUrl}}/accounts/{{open.response.body.$.id}}/deposits
+Content-Type: application/json
+Idempotency-Key: deposit-1
+
+{
+  "amount": 250.00,
+  "currency": "EUR"
+}
+
+###
+
+POST {{baseUrl}}/accounts/{{open.response.body.$.id}}/withdrawals
+Content-Type: application/json
+Idempotency-Key: withdrawal-1
+
+{
+  "amount": 30.00,
+  "currency": "EUR"
+}
+
+###
+
+# more than the balance: 409 with code account.insufficient_funds
+POST {{baseUrl}}/accounts/{{open.response.body.$.id}}/withdrawals
+Content-Type: application/json
+
+{
+  "amount": 1000.00,
+  "currency": "EUR"
+}
+
+###
+
+# three decimals in EUR: 400 validation problem on amount
+POST {{baseUrl}}/accounts/{{open.response.body.$.id}}/deposits
+Content-Type: application/json
+
+{
+  "amount": 10.005,
+  "currency": "EUR"
+}
+
+###
+
+# not a GUID: 400 from route binding
+GET {{baseUrl}}/accounts/not-a-guid
+
+###
+
+# no such account: 404 with code account.not_found
+GET {{baseUrl}}/accounts/00000000-0000-0000-0000-000000000001
+
+###
+
+GET {{baseUrl}}/health
+
+###
+
+GET {{baseUrl}}/openapi/v1.json

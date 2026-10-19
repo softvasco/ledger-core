@@ -91,7 +91,7 @@ dotnet test
 dotnet run --project src/LedgerCore.Api
 ```
 
-The API keeps everything in memory for now. Open http://localhost:5174/scalar to open an account and post deposits and withdrawals.
+The API keeps everything in memory for now. Open http://localhost:5174/scalar to open an account and post deposits and withdrawals, or run the requests in [LedgerCore.Api.http](src/LedgerCore.Api/LedgerCore.Api.http) from VS Code (REST Client) or Visual Studio. They cover each endpoint, a retried deposit, and the main errors.
 
 Needs the .NET 10 SDK, and Docker for the PostgreSQL tests (Testcontainers starts the database). A one-command run with .NET Aspire comes once there is infrastructure to run.
 
