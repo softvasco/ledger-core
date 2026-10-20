@@ -2,6 +2,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using LedgerCore.Domain.Accounts;
 using LedgerCore.Domain.Monetary;
+using LedgerCore.Domain.Transfers;
 
 namespace LedgerCore.Infrastructure.EventStore.Serialization;
 
@@ -12,6 +13,15 @@ internal sealed class AccountIdConverter : JsonConverter<AccountId>
         AccountId.Parse(reader.GetString()!);
 
     public override void Write(Utf8JsonWriter writer, AccountId value, JsonSerializerOptions options) =>
+        writer.WriteStringValue(value.Value);
+}
+
+internal sealed class TransferIdConverter : JsonConverter<TransferId>
+{
+    public override TransferId Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options) =>
+        TransferId.From(reader.GetGuid());
+
+    public override void Write(Utf8JsonWriter writer, TransferId value, JsonSerializerOptions options) =>
         writer.WriteStringValue(value.Value);
 }
 

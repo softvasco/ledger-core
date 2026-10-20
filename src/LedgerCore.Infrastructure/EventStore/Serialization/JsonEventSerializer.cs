@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Serialization.Metadata;
 using LedgerCore.Domain.Abstractions;
 using LedgerCore.Domain.Accounts.Events;
+using LedgerCore.Domain.Transfers.Events;
 
 namespace LedgerCore.Infrastructure.EventStore.Serialization;
 
@@ -18,6 +19,11 @@ public sealed class JsonEventSerializer : IEventSerializer
         ["account_closed"] = typeof(AccountClosed),
         ["money_deposited"] = typeof(MoneyDeposited),
         ["money_withdrawn"] = typeof(MoneyWithdrawn),
+        ["transfer_requested"] = typeof(TransferRequested),
+        ["transfer_source_debited"] = typeof(TransferSourceDebited),
+        ["transfer_completed"] = typeof(TransferCompleted),
+        ["transfer_failed"] = typeof(TransferFailed),
+        ["transfer_compensated"] = typeof(TransferCompensated),
     }.ToFrozenDictionary(StringComparer.Ordinal);
 
     private static readonly FrozenDictionary<Type, string> NamesByType =

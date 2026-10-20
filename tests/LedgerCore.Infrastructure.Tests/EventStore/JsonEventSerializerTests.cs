@@ -2,6 +2,8 @@ using LedgerCore.Domain.Abstractions;
 using LedgerCore.Domain.Accounts;
 using LedgerCore.Domain.Accounts.Events;
 using LedgerCore.Domain.Monetary;
+using LedgerCore.Domain.Transfers;
+using LedgerCore.Domain.Transfers.Events;
 using LedgerCore.Infrastructure.EventStore.Serialization;
 
 namespace LedgerCore.Infrastructure.Tests.EventStore;
@@ -9,6 +11,8 @@ namespace LedgerCore.Infrastructure.Tests.EventStore;
 public class JsonEventSerializerTests
 {
     private static readonly AccountId SomeAccount = AccountId.Parse("0199a3c2-7b1e-7d40-9a51-3c0f6e2b8d14");
+    private static readonly AccountId OtherAccount = AccountId.Parse("0199a3c2-7b1e-7d40-9a51-3c0f6e2b8d15");
+    private static readonly TransferId SomeTransfer = TransferId.From(Guid.Parse("0199a3c2-7b1e-7d40-9a51-3c0f6e2b8d20"));
     private static readonly DateTimeOffset Now = new(2026, 10, 3, 21, 0, 0, TimeSpan.Zero);
 
     private readonly JsonEventSerializer _serializer = new();
@@ -21,6 +25,11 @@ public class JsonEventSerializerTests
         new AccountClosed(SomeAccount, Now),
         new MoneyDeposited(SomeAccount, Money.Of(1250.75m, Currency.Eur), Now),
         new MoneyWithdrawn(SomeAccount, Money.Of(5000m, Currency.FromCode("JPY")), Now),
+        new TransferRequested(SomeTransfer, SomeAccount, OtherAccount, Money.Of(40m, Currency.Eur), Now),
+        new TransferSourceDebited(SomeTransfer, Now),
+        new TransferCompleted(SomeTransfer, Now),
+        new TransferFailed(SomeTransfer, AccountErrors.InsufficientFundsCode, Now),
+        new TransferCompensated(SomeTransfer, AccountErrors.InvalidStateCode, Now),
     ];
 
     [Theory]
