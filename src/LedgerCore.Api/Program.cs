@@ -2,6 +2,7 @@ using LedgerCore.Api.Accounts;
 using LedgerCore.Api.OpenApi;
 using LedgerCore.Api.Problems;
 using LedgerCore.Api.Storage;
+using LedgerCore.Api.Transfers;
 using LedgerCore.Application.Accounts;
 using LedgerCore.Application.Commands;
 using LedgerCore.Application.Idempotency;
@@ -44,5 +45,6 @@ if (app.Environment.IsDevelopment())
 
 app.MapHealthChecks("/health");
 app.MapAccounts();
+app.MapTransfers();
 
 app.Run();
