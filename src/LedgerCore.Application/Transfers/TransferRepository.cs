@@ -17,6 +17,7 @@ public sealed class TransferRepository(IEventStore events)
         return history.Count == 0 ? null : Transfer.FromHistory(history);
     }
 
+    /// <summary>Appends the transfer's pending events to its stream.</summary>
     /// <exception cref="ConcurrencyConflictException">The transfer changed since it was loaded.</exception>
     public async Task SaveAsync(Transfer transfer, CancellationToken cancellationToken = default)
     {
