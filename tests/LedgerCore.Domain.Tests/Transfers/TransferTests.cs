@@ -126,6 +126,24 @@ public class TransferTests
         Assert.Empty(replayed.PendingEvents);
     }
 
+    [Fact]
+    public void A_transfer_id_reads_back_from_its_text()
+    {
+        var id = TransferId.New(_clock);
+
+        Assert.True(TransferId.TryParse(id.ToString(), out var parsed));
+        Assert.Equal(id, parsed);
+    }
+
+    [Theory]
+    [InlineData("not-a-guid")]
+    [InlineData("00000000-0000-0000-0000-000000000000")]
+    [InlineData(null)]
+    public void Text_that_is_not_a_transfer_id_does_not_parse(string? value)
+    {
+        Assert.False(TransferId.TryParse(value, out _));
+    }
+
     private Transfer Requested() =>
         Transfer.Request(TransferId.New(_clock), _source, _destination, Money.Of(40m, Currency.Eur), _clock);
 }
