@@ -31,11 +31,12 @@ Done:
 - An account read model built by a pure projection that follows the store's global position.
 - Account endpoints on a minimal API. Every error is an RFC 9457 problem with a stable `code` to branch on, for example a 409 with `account.insufficient_funds` when a withdrawal is more than the balance ([ADR-0008](docs/adr/0008-problem-details-for-every-error.md)).
 - An OpenAPI 3.1 document at `/openapi/v1.json` that lists every status an endpoint can answer, and a Scalar UI at `/scalar` in development.
+- `Idempotency-Key` on every POST: a retry gets the stored response back, the same key with another body is a 422 ([ADR-0009](docs/adr/0009-idempotency-keys-for-post.md)). It is an endpoint filter, so callers that run the endpoint in-process get it too ([ADR-0010](docs/adr/0010-idempotency-as-an-endpoint-filter.md)).
+- Transfers between accounts run as a process manager over the two account streams: debit the source, credit the destination, and give the money back if the destination refuses ([ADR-0011](docs/adr/0011-transfers-as-a-process-manager.md)). `POST /transfers` answers 201 with the final status, or the refusing account's problem plus a `transferId` to read it back from `GET /transfers/{id}`. A retry with the same `Idempotency-Key` gets the first answer and moves the money once.
 - What counts as the API contract, which changes break it, and how a v2 would sit next to v1: [docs/api.md](docs/api.md).
 
 Coming next:
-- Idempotency keys on the API, then the same API as MCP tools.
-- Transfers as a process manager, transactional outbox, Azure Service Bus.
+- Transactional outbox (built on outbox-kit), then Azure Service Bus.
 - Read models on SQL Server, .NET Aspire, OpenTelemetry, and a Blazor back office.
 
 ## Architecture
@@ -92,7 +93,7 @@ dotnet test
 dotnet run --project src/LedgerCore.Api
 ```
 
-The API keeps everything in memory for now. Open http://localhost:5174/scalar to open an account and post deposits and withdrawals, or run the requests in [LedgerCore.Api.http](src/LedgerCore.Api/LedgerCore.Api.http) from VS Code (REST Client) or Visual Studio. They cover each endpoint, a retried deposit, and the main errors.
+The API keeps everything in memory for now. Open http://localhost:5174/scalar to open an account, post deposits and withdrawals and move money between accounts, or run the requests in [LedgerCore.Api.http](src/LedgerCore.Api/LedgerCore.Api.http) from VS Code (REST Client) or Visual Studio. They cover each endpoint, a retried deposit, and the main errors.
 
 Needs the .NET 10 SDK, and Docker for the PostgreSQL tests (Testcontainers starts the database). A one-command run with .NET Aspire comes once there is infrastructure to run.
 
