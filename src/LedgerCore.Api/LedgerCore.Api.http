@@ -98,6 +98,49 @@ GET {{baseUrl}}/accounts/00000000-0000-0000-0000-000000000001
 
 ###
 
+# a second account to transfer into
+# @name second
+POST {{baseUrl}}/accounts
+Content-Type: application/json
+
+{
+  "iban": "PT50 0002 0123 1234 5678 9015 4",
+  "currency": "EUR"
+}
+
+###
+
+# @name transfer
+POST {{baseUrl}}/transfers
+Content-Type: application/json
+Idempotency-Key: transfer-1
+
+{
+  "source": "{{open.response.body.$.id}}",
+  "destination": "{{second.response.body.$.id}}",
+  "amount": 20.00,
+  "currency": "EUR"
+}
+
+###
+
+GET {{baseUrl}}/transfers/{{transfer.response.body.$.id}}
+
+###
+
+# more than the source holds: 409 with code account.insufficient_funds and the transferId of the failed transfer
+POST {{baseUrl}}/transfers
+Content-Type: application/json
+
+{
+  "source": "{{open.response.body.$.id}}",
+  "destination": "{{second.response.body.$.id}}",
+  "amount": 5000.00,
+  "currency": "EUR"
+}
+
+###
+
 GET {{baseUrl}}/health
 
 ###

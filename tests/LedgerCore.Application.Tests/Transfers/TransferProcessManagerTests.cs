@@ -109,6 +109,27 @@ public class TransferProcessManagerTests
         Assert.Equal(TransferStatus.SourceDebited, (await _transfers.LoadAsync(transfer.Id, Token))!.Status);
     }
 
+    [Fact]
+    public async Task Reading_a_refused_transfer_shows_its_status_and_reason()
+    {
+        var source = await OpenWith(10m);
+        var destination = await OpenWith(0m);
+        var command = Start(source, destination, 40m);
+        await _handler.HandleAsync(command, Token);
+
+        var summary = await new GetTransferHandler(_transfers).HandleAsync(new GetTransfer(command.TransferId), Token);
+
+        Assert.Equal(
+            new TransferSummary(command.TransferId, source, destination, Eur(40m), TransferStatus.Failed, AccountErrors.InsufficientFundsCode),
+            summary);
+    }
+
+    [Fact]
+    public async Task Reading_an_unknown_transfer_gives_null()
+    {
+        Assert.Null(await new GetTransferHandler(_transfers).HandleAsync(new GetTransfer(TransferId.New(_clock)), Token));
+    }
+
     private static Money Eur(decimal amount) => Money.Of(amount, Currency.Eur);
 
     private StartTransfer Start(AccountId source, AccountId destination, decimal amount) =>

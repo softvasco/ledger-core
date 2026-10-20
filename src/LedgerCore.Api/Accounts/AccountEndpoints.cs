@@ -84,7 +84,7 @@ internal static class AccountEndpoints
         AccountId id, AmountRequest request, ICommandDispatcher commands, CancellationToken cancellationToken)
     {
         var errors = new Dictionary<string, string[]>();
-        if (ReadAmount(request, errors) is not { } amount)
+        if (AmountBinding.ReadAmount(request.Amount, request.Currency, errors) is not { } amount)
         {
             return TypedResults.ValidationProblem(errors);
         }
@@ -96,30 +96,12 @@ internal static class AccountEndpoints
         AccountId id, AmountRequest request, ICommandDispatcher commands, CancellationToken cancellationToken)
     {
         var errors = new Dictionary<string, string[]>();
-        if (ReadAmount(request, errors) is not { } amount)
+        if (AmountBinding.ReadAmount(request.Amount, request.Currency, errors) is not { } amount)
         {
             return TypedResults.ValidationProblem(errors);
         }
 
         return Answer(await commands.DispatchAsync(new Withdraw(id, amount), cancellationToken));
-    }
-
-    private static Money? ReadAmount(AmountRequest request, Dictionary<string, string[]> errors)
-    {
-        if (!Currency.TryFromCode(request.Currency, out var currency))
-        {
-            errors["currency"] = ["Not a supported ISO 4217 currency code."];
-            return null;
-        }
-
-        // Money refuses extra decimals with an exception; here it's the client's mistake, so a 400
-        if (decimal.Round(request.Amount, currency.MinorUnits) != request.Amount)
-        {
-            errors["amount"] = [$"{currency.Code} amounts have at most {currency.MinorUnits} decimal places."];
-            return null;
-        }
-
-        return Money.Of(request.Amount, currency);
     }
 
     private static Results<Ok<BalanceResponse>, ValidationProblem, ProblemHttpResult> Answer(Result<Money> result)

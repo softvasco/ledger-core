@@ -1,6 +1,7 @@
 using LedgerCore.Domain.Abstractions;
 using LedgerCore.Domain.Accounts;
 using LedgerCore.Domain.Ledger;
+using LedgerCore.Domain.Transfers;
 using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace LedgerCore.Api.Problems;
@@ -19,6 +20,7 @@ internal static class DomainProblems
         [AccountErrors.CurrencyMismatchCode] = StatusCodes.Status422UnprocessableEntity,
         [LedgerErrors.TooFewPostingsCode] = StatusCodes.Status422UnprocessableEntity,
         [LedgerErrors.UnbalancedCode] = StatusCodes.Status422UnprocessableEntity,
+        [TransferErrors.NotFoundCode] = StatusCodes.Status404NotFound,
     };
 
     public static int StatusFor(DomainError error)
