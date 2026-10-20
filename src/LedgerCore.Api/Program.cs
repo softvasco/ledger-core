@@ -7,6 +7,7 @@ using LedgerCore.Application.Commands;
 using LedgerCore.Application.Idempotency;
 using LedgerCore.Application.Queries;
 using LedgerCore.Application.Snapshots;
+using LedgerCore.Application.Transfers;
 using LedgerCore.Infrastructure.Accounts;
 using Scalar.AspNetCore;
 
@@ -25,6 +26,8 @@ builder.Services.AddSingleton<InMemoryAccountSummaries>();
 builder.Services.AddSingleton<IAccountSummaries>(sp => sp.GetRequiredService<InMemoryAccountSummaries>());
 builder.Services.AddHostedService<AccountSummariesCatchUp>();
 builder.Services.AddScoped<AccountRepository>();
+builder.Services.AddScoped<TransferRepository>();
+builder.Services.AddScoped<TransferProcessManager>();
 builder.Services.AddCommands(typeof(OpenAccount).Assembly);
 builder.Services.AddQueries(typeof(GetAccount).Assembly);
 

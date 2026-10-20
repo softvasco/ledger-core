@@ -3,6 +3,7 @@ using LedgerCore.Application.Commands;
 using LedgerCore.Application.EventStore;
 using LedgerCore.Application.Queries;
 using LedgerCore.Application.Snapshots;
+using LedgerCore.Application.Transfers;
 using LedgerCore.Domain.Accounts;
 using LedgerCore.Domain.Monetary;
 using LedgerCore.Infrastructure.Accounts;
@@ -33,6 +34,8 @@ public sealed class AccountQueryTests : IDisposable
             .AddSingleton(new SnapshotPolicy(100))
             .AddSingleton<IAccountSummaries>(_summaries)
             .AddScoped<AccountRepository>()
+            .AddScoped<TransferRepository>()
+            .AddScoped<TransferProcessManager>()
             .AddCommands(typeof(OpenAccount).Assembly)
             .AddQueries(typeof(GetAccount).Assembly)
             .BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
