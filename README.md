@@ -85,6 +85,23 @@ sequenceDiagram
 
 The write side answers from the account stream, so a withdrawal never sees a stale balance. The read side catches up after the append and can lag behind it; a query returns whatever the projection has seen so far.
 
+## How a transfer runs
+
+```mermaid
+stateDiagram-v2
+    [*] --> Requested: POST /transfers
+    Requested --> SourceDebited: source withdrawal accepted
+    Requested --> Failed: source refuses
+    SourceDebited --> Completed: destination deposit accepted
+    SourceDebited --> Compensated: destination refuses, money back on the source
+    SourceDebited --> SourceDebited: refund refused too, stays open for a person
+    Completed --> [*]
+    Failed --> [*]
+    Compensated --> [*]
+```
+
+Each arrow is one event on the transfer's own stream, saved before the next step starts, so after a crash `TransferProcessManager` picks up at the last recorded state. A refused debit is `Failed` because no money moved. A refused credit is `Compensated` because the source was paid back. If the refund is refused as well, the transfer stays `SourceDebited` and the error is thrown rather than hidden ([ADR-0011](docs/adr/0011-transfers-as-a-process-manager.md)).
+
 ## Quickstart
 
 ```bash
