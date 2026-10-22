@@ -3,6 +3,7 @@
     <ProjectReference Include="..\LedgerCore.Application\LedgerCore.Application.csproj" />
   </ItemGroup>
   <ItemGroup>
+    <PackageReference Include="Microsoft.Data.SqlClient" />
     <PackageReference Include="Npgsql" />
   </ItemGroup>
   <ItemGroup>
@@ -10,5 +11,6 @@
   </ItemGroup>
   <ItemGroup>
     <EmbeddedResource Include="EventStore\Postgres\schema.sql" />
+    <EmbeddedResource Include="EventStore\SqlServer\schema.sql" />
   </ItemGroup>
 </Project>
