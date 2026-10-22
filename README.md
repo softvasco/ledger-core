@@ -5,7 +5,7 @@
 
 An event-sourced, double-entry banking ledger in .NET 10. Every movement debits one account and credits another, nothing is ever updated in place, and any balance can be rebuilt from the events that produced it.
 
-Work in progress. The domain model, the PostgreSQL event store and the command and query layer are in place; the HTTP API is next.
+Work in progress. The domain model, the event store (PostgreSQL or SQL Server), the command and query layer and the HTTP API are in place; the transactional outbox is next.
 
 ## Why
 
@@ -23,7 +23,7 @@ Done:
 - `Account` aggregate (open, freeze, unfreeze, close) built from its events on a small aggregate root with versioning.
 - Journal entries of two or more postings that must balance in every currency, checked with FsCheck property tests ([ADR-0004](docs/adr/0004-double-entry-bookkeeping-model.md)).
 - Business rule failures come back as `Result` with stable error codes; exceptions are kept for bugs ([ADR-0003](docs/adr/0003-results-for-business-rule-failures.md)).
-- Event store on a single PostgreSQL table: optimistic concurrency per stream, and a global position that readers can follow without skipping a late commit.
+- Event store on a single table: optimistic concurrency per stream, and a global position that readers can follow without skipping a late commit. It runs on PostgreSQL or SQL Server and both pass the same contract tests. Positions come from an identity column that is assigned before commit, so appends take a lock first: an advisory lock on PostgreSQL, `sp_getapplock` on SQL Server.
 - Snapshots every N events (100 by default). They are only a cache: a missing or unreadable snapshot just means a longer replay.
 - Benchmarks for appends and stream reads, with the results in [docs/performance.md](docs/performance.md).
 - Commands and queries through a small hand-written dispatcher, one handler per message ([ADR-0007](docs/adr/0007-own-command-and-query-dispatcher.md)). Commands run through tracing, logging and validation behaviors; validation reports every error at once.
@@ -48,7 +48,7 @@ flowchart LR
     app --> domain[LedgerCore.Domain<br/>aggregates, value objects, events]
     app --> ports{{ports}}
     infra[LedgerCore.Infrastructure] -. implements .-> ports
-    infra --> es[(PostgreSQL<br/>event store + outbox)]
+    infra --> es[(PostgreSQL or SQL Server<br/>event store + outbox)]
     infra --> rm[(SQL Server<br/>read models)]
     infra --> bus[[Azure Service Bus]]
 ```
@@ -112,7 +112,7 @@ dotnet run --project src/LedgerCore.Api
 
 The API keeps everything in memory for now. Open http://localhost:5174/scalar to open an account, post deposits and withdrawals and move money between accounts, or run the requests in [LedgerCore.Api.http](src/LedgerCore.Api/LedgerCore.Api.http) from VS Code (REST Client) or Visual Studio. They cover each endpoint, a retried deposit, and the main errors.
 
-Needs the .NET 10 SDK, and Docker for the PostgreSQL tests (Testcontainers starts the database). A one-command run with .NET Aspire comes once there is infrastructure to run.
+Needs the .NET 10 SDK, and Docker for the PostgreSQL and SQL Server tests (Testcontainers starts the databases). A one-command run with .NET Aspire comes once there is infrastructure to run.
 
 ## License
 
