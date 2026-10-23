@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using LedgerCore.Api.Accounts;
+using LedgerCore.Application.Projections;
 using LedgerCore.Infrastructure.Accounts;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -86,7 +87,7 @@ public sealed class PostgresApiTests(PostgresContainer database) : IClassFixture
     private static async Task<decimal> BalanceAsync(WebApplicationFactory<Program> api, Guid account)
     {
         using var client = api.CreateClient();
-        await api.Services.GetRequiredService<InMemoryAccountSummaries>().CatchUpAsync(Token);
+        await api.Services.GetRequiredService<ProjectionRunner>().CatchUpAsync(Token);
         return (await client.GetFromJsonAsync<AccountResponse>($"/accounts/{account}", Token))!.Balance;
     }
 

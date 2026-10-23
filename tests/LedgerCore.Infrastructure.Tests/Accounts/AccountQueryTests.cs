@@ -1,6 +1,7 @@
 using LedgerCore.Application.Accounts;
 using LedgerCore.Application.Commands;
 using LedgerCore.Application.EventStore;
+using LedgerCore.Application.Projections;
 using LedgerCore.Application.Queries;
 using LedgerCore.Application.Snapshots;
 using LedgerCore.Application.Transfers;
@@ -8,6 +9,7 @@ using LedgerCore.Domain.Accounts;
 using LedgerCore.Domain.Monetary;
 using LedgerCore.Infrastructure.Accounts;
 using LedgerCore.Infrastructure.EventStore;
+using LedgerCore.Infrastructure.Projections;
 using LedgerCore.Infrastructure.Snapshots;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Time.Testing;
@@ -20,13 +22,14 @@ public sealed class AccountQueryTests : IDisposable
     private static readonly Iban SomeIban = Iban.Parse("PT50 0002 0123 1234 5678 9015 4");
 
     private readonly InMemoryEventStore _events = new();
-    private readonly InMemoryAccountSummaries _summaries;
+    private readonly InMemoryAccountSummaries _summaries = new();
+    private readonly ProjectionRunner _projections;
     private readonly ServiceProvider _services;
     private readonly IServiceScope _scope;
 
     public AccountQueryTests()
     {
-        _summaries = new InMemoryAccountSummaries(_events);
+        _projections = new ProjectionRunner(_events, new InMemoryCheckpointStore(), [_summaries]);
         _services = new ServiceCollection()
             .AddSingleton<TimeProvider>(new FakeTimeProvider(new DateTimeOffset(2026, 10, 9, 9, 0, 0, TimeSpan.Zero)))
             .AddSingleton<IEventStore>(_events)
@@ -57,7 +60,7 @@ public sealed class AccountQueryTests : IDisposable
 
         Assert.Null(await Queries.DispatchAsync(new GetAccount(id), Token));
 
-        Assert.Equal(3, await _summaries.CatchUpAsync(Token));
+        Assert.Equal(3, await _projections.CatchUpAsync(Token));
         var summary = await Queries.DispatchAsync(new GetAccount(id), Token);
 
         Assert.NotNull(summary);
@@ -70,19 +73,19 @@ public sealed class AccountQueryTests : IDisposable
     public async Task Catching_up_again_only_reads_what_was_stored_since()
     {
         var id = (await Commands.DispatchAsync(new OpenAccount(SomeIban, Currency.Eur), Token)).Value;
-        await _summaries.CatchUpAsync(Token);
+        await _projections.CatchUpAsync(Token);
 
         await Commands.DispatchAsync(new Deposit(id, Money.Of(5m, Currency.Eur)), Token);
 
-        Assert.Equal(1, await _summaries.CatchUpAsync(Token));
-        Assert.Equal(0, await _summaries.CatchUpAsync(Token));
+        Assert.Equal(1, await _projections.CatchUpAsync(Token));
+        Assert.Equal(0, await _projections.CatchUpAsync(Token));
         Assert.Equal(Money.Of(5m, Currency.Eur), (await Queries.DispatchAsync(new GetAccount(id), Token))!.Balance);
     }
 
     [Fact]
     public async Task An_unknown_account_is_null_rather_than_an_error()
     {
-        await _summaries.CatchUpAsync(Token);
+        await _projections.CatchUpAsync(Token);
 
         Assert.Null(await Queries.DispatchAsync(new GetAccount(AccountId.From(Guid.CreateVersion7())), Token));
     }
@@ -91,6 +94,6 @@ public sealed class AccountQueryTests : IDisposable
     {
         _scope.Dispose();
         _services.Dispose();
-        _summaries.Dispose();
+        _projections.Dispose();
     }
 }

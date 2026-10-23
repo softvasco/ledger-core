@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using LedgerCore.Api.Accounts;
 using LedgerCore.Api.Transfers;
+using LedgerCore.Application.Projections;
 using LedgerCore.Infrastructure.Accounts;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -126,7 +127,7 @@ public sealed class TransferEndpointTests : IAsyncDisposable
 
     private async Task<decimal> BalanceAsync(Guid account)
     {
-        await _factory.Services.GetRequiredService<InMemoryAccountSummaries>().CatchUpAsync(Token);
+        await _factory.Services.GetRequiredService<ProjectionRunner>().CatchUpAsync(Token);
         return (await _client.GetFromJsonAsync<AccountResponse>($"/accounts/{account}", Token))!.Balance;
     }
 

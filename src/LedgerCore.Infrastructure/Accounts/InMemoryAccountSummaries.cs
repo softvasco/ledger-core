@@ -1,49 +1,29 @@
 using System.Collections.Concurrent;
 using LedgerCore.Application.Accounts;
 using LedgerCore.Application.EventStore;
+using LedgerCore.Application.Projections;
 using LedgerCore.Domain.Accounts;
 
 namespace LedgerCore.Infrastructure.Accounts;
 
-/// <summary>Account summaries in memory, filled from the store's global order. For tests.</summary>
-public sealed class InMemoryAccountSummaries(IEventStore events) : IAccountSummaries, IDisposable
+/// <summary>Account summaries in memory, fed by the projection runner. For tests and local runs.</summary>
+public sealed class InMemoryAccountSummaries : IAccountSummaries, IProjection
 {
     private readonly ConcurrentDictionary<AccountId, AccountSummary> _summaries = new();
-    private readonly SemaphoreSlim _catchingUp = new(1, 1);
-    private long _checkpoint;
 
-    /// <summary>The position of the last event applied.</summary>
-    public long Checkpoint => Interlocked.Read(ref _checkpoint);
+    public string Name => "account-summaries";
 
     public Task<AccountSummary?> GetAsync(AccountId id, CancellationToken cancellationToken = default) =>
         Task.FromResult(_summaries.TryGetValue(id, out var summary) ? summary : null);
 
-    /// <summary>Applies the events stored after the checkpoint and returns how many.</summary>
-    public async Task<int> CatchUpAsync(CancellationToken cancellationToken = default)
+    public Task ApplyAsync(RecordedEvent recorded, CancellationToken cancellationToken = default)
     {
-        // one reader at a time, or two could apply the same events and race on the checkpoint
-        await _catchingUp.WaitAsync(cancellationToken).ConfigureAwait(false);
-        try
+        ArgumentNullException.ThrowIfNull(recorded);
+        if (AccountSummaryProjection.TryGetAccount(recorded.Event, out var id))
         {
-            var applied = 0;
-            await foreach (var recorded in events.ReadAllAsync(Checkpoint, cancellationToken).ConfigureAwait(false))
-            {
-                if (AccountSummaryProjection.TryGetAccount(recorded.Event, out var id))
-                {
-                    _summaries[id] = AccountSummaryProjection.Apply(_summaries.GetValueOrDefault(id), recorded);
-                }
-
-                Interlocked.Exchange(ref _checkpoint, recorded.Position);
-                applied++;
-            }
-
-            return applied;
+            _summaries[id] = AccountSummaryProjection.Apply(_summaries.GetValueOrDefault(id), recorded);
         }
-        finally
-        {
-            _catchingUp.Release();
-        }
+
+        return Task.CompletedTask;
     }
-
-    public void Dispose() => _catchingUp.Dispose();
 }

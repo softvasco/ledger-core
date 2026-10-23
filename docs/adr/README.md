@@ -13,3 +13,4 @@
 | [0009](0009-idempotency-keys-for-post.md) | Idempotency keys for POST requests | Accepted |
 | [0010](0010-idempotency-as-an-endpoint-filter.md) | Idempotency as an endpoint filter, so in-process callers get it | Accepted |
 | [0011](0011-transfers-as-a-process-manager.md) | Transfers run as a process manager over two account streams | Accepted |
+| [0012](0012-catch-up-projections-with-checkpoints.md) | Read models catch up from the global order with a checkpoint each | Accepted |

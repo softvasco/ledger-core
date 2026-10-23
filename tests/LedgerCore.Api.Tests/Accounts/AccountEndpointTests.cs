@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http.Json;
 using LedgerCore.Api.Accounts;
+using LedgerCore.Application.Projections;
 using LedgerCore.Infrastructure.Accounts;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -113,7 +114,7 @@ public sealed class AccountEndpointTests : IAsyncDisposable
         await PostAmountAsync(id, "deposits", 25m);
 
         // the background catch-up runs on a timer; doing it here keeps the test deterministic
-        await _factory.Services.GetRequiredService<InMemoryAccountSummaries>().CatchUpAsync(Token);
+        await _factory.Services.GetRequiredService<ProjectionRunner>().CatchUpAsync(Token);
         var account = await _client.GetFromJsonAsync<AccountResponse>($"/accounts/{id}", Token);
 
         Assert.Equal(new AccountResponse(id, "PT50000201231234567890154", "EUR", "Open", 25m, 2), account);
