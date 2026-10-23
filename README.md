@@ -28,7 +28,7 @@ Done:
 - Benchmarks for appends and stream reads, with the results in [docs/performance.md](docs/performance.md).
 - Commands and queries through a small hand-written dispatcher, one handler per message ([ADR-0007](docs/adr/0007-own-command-and-query-dispatcher.md)). Commands run through tracing, logging and validation behaviors; validation reports every error at once.
 - Deposit and Withdraw with the balance kept on the account stream, so two racing withdrawals can't both pass the funds check ([ADR-0006](docs/adr/0006-balance-on-the-account-stream.md)).
-- An account read model built by a pure projection that follows the store's global position.
+- Read models fed by a projection runner that follows the store's global position, with a checkpoint per projection ([ADR-0012](docs/adr/0012-catch-up-projections-with-checkpoints.md)).
 - Account endpoints on a minimal API. Every error is an RFC 9457 problem with a stable `code` to branch on, for example a 409 with `account.insufficient_funds` when a withdrawal is more than the balance ([ADR-0008](docs/adr/0008-problem-details-for-every-error.md)).
 - An OpenAPI 3.1 document at `/openapi/v1.json` that lists every status an endpoint can answer, and a Scalar UI at `/scalar` in development.
 - `Idempotency-Key` on every POST: a retry gets the stored response back, the same key with another body is a 422 ([ADR-0009](docs/adr/0009-idempotency-keys-for-post.md)). It is an endpoint filter, so callers that run the endpoint in-process get it too ([ADR-0010](docs/adr/0010-idempotency-as-an-endpoint-filter.md)).
