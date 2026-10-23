@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text.Json;
 using LedgerCore.Api.Accounts;
 using LedgerCore.Application.EventStore;
+using LedgerCore.Application.Projections;
 using LedgerCore.Domain.Abstractions;
 using LedgerCore.Infrastructure.Accounts;
 using LedgerCore.Infrastructure.EventStore;
@@ -154,7 +155,7 @@ public sealed class IdempotencyTests : IAsyncDisposable
     // the read model trails the events, so bring it up to date before reading the balance
     private async Task<decimal> BalanceAsync(HttpClient client, Guid account)
     {
-        await _factory.Services.GetRequiredService<InMemoryAccountSummaries>().CatchUpAsync(Token);
+        await _factory.Services.GetRequiredService<ProjectionRunner>().CatchUpAsync(Token);
         return (await client.GetFromJsonAsync<AccountResponse>($"/accounts/{account}", Token))!.Balance;
     }
 

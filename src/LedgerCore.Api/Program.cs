@@ -1,15 +1,18 @@
 using LedgerCore.Api.Accounts;
 using LedgerCore.Api.OpenApi;
+using LedgerCore.Api.Projections;
 using LedgerCore.Api.Problems;
 using LedgerCore.Api.Storage;
 using LedgerCore.Api.Transfers;
 using LedgerCore.Application.Accounts;
 using LedgerCore.Application.Commands;
 using LedgerCore.Application.Idempotency;
+using LedgerCore.Application.Projections;
 using LedgerCore.Application.Queries;
 using LedgerCore.Application.Snapshots;
 using LedgerCore.Application.Transfers;
 using LedgerCore.Infrastructure.Accounts;
+using LedgerCore.Infrastructure.Projections;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -25,7 +28,12 @@ builder.Services.AddSingleton(new IdempotencyOptions());
 builder.Services.AddSingleton(new SnapshotPolicy(100));
 builder.Services.AddSingleton<InMemoryAccountSummaries>();
 builder.Services.AddSingleton<IAccountSummaries>(sp => sp.GetRequiredService<InMemoryAccountSummaries>());
-builder.Services.AddHostedService<AccountSummariesCatchUp>();
+builder.Services.AddSingleton<IProjection>(sp => sp.GetRequiredService<InMemoryAccountSummaries>());
+
+// the summaries live in memory, so their checkpoint has to as well
+builder.Services.AddSingleton<ICheckpointStore, InMemoryCheckpointStore>();
+builder.Services.AddSingleton<ProjectionRunner>();
+builder.Services.AddHostedService<ProjectionCatchUp>();
 builder.Services.AddScoped<AccountRepository>();
 builder.Services.AddScoped<TransferRepository>();
 builder.Services.AddScoped<TransferProcessManager>();
