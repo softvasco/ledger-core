@@ -58,7 +58,9 @@ public abstract class SnapshotStoreContract(ISnapshotStore<AccountSnapshot> stor
         long version, AccountStatus status, FreezeReason? reason = null)
     {
         var stream = NewStream();
-        return (stream, new AccountSnapshot(
-            AccountId.From(stream.Id), SomeIban, Currency.Eur, status, reason, Money.Of(1250.75m, Currency.Eur), version));
+        return (stream, Taken(stream, version, status, reason));
     }
+
+    protected static AccountSnapshot Taken(StreamId stream, long version, AccountStatus status, FreezeReason? reason = null) =>
+        new(AccountId.From(stream.Id), SomeIban, Currency.Eur, status, reason, Money.Of(1250.75m, Currency.Eur), version);
 }
