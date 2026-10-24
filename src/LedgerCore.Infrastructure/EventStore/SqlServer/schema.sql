@@ -19,3 +19,14 @@ create table dbo.snapshots (
     taken_at datetimeoffset not null constraint snapshots_taken_at_default default sysdatetimeoffset(),
     constraint snapshots_pk primary key (stream_category, stream_id)
 );
+
+if object_id(N'dbo.idempotency_keys', N'U') is null
+create table dbo.idempotency_keys (
+    idempotency_key nvarchar(255) not null constraint idempotency_keys_pk primary key,
+    fingerprint varbinary(64) not null,
+    claimed_at datetimeoffset not null,
+    status_code int null,
+    content_type nvarchar(200) null,
+    location nvarchar(2000) null,
+    body varbinary(max) null
+);
