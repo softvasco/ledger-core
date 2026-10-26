@@ -14,6 +14,9 @@ public sealed class SqlServerEventStore : IEventStore
     private const string StreamVersionKey = "events_stream_version_key";
     private const int UniqueConstraintViolation = 2627;
 
+    // two parameters a row, well under the 2,100 SQL Server allows in one command
+    private const int RowsPerInsert = 500;
+
     private readonly string _connectionString;
     private readonly IEventSerializer _serializer;
 
@@ -67,10 +70,11 @@ public sealed class SqlServerEventStore : IEventStore
         var version = expectedVersion;
         try
         {
-            foreach (var @event in serialized)
+            foreach (var chunk in serialized.Chunk(RowsPerInsert))
             {
-                await InsertAsync(connection, transaction, stream, ++version, @event, cancellationToken)
+                await InsertAsync(connection, transaction, stream, version, chunk, cancellationToken)
                     .ConfigureAwait(false);
+                version += chunk.Length;
             }
 
             await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
@@ -184,21 +188,29 @@ public sealed class SqlServerEventStore : IEventStore
         SqlConnection connection,
         SqlTransaction transaction,
         StreamId stream,
-        long version,
-        SerializedEvent @event,
+        long versionBefore,
+        SerializedEvent[] events,
         CancellationToken cancellationToken)
     {
+        var rows = string.Join(", ", events.Select((_, i) => $"({versionBefore + i + 1}, @type{i}, @data{i})"));
+
+        // only insert ... select ... order by promises identity values in that order
         await using var command = new SqlCommand(
-            """
+            $"""
             insert into dbo.events (stream_category, stream_id, version, event_type, data)
-            values (@category, @id, @version, @type, @data)
+            select @category, @id, version, event_type, data
+            from (values {rows}) as batch (version, event_type, data)
+            order by version
             """,
             connection,
             transaction);
         AddStream(command.Parameters, stream);
-        command.Parameters.Add("@version", SqlDbType.BigInt).Value = version;
-        command.Parameters.Add("@type", SqlDbType.NVarChar, 200).Value = @event.EventType;
-        command.Parameters.Add("@data", SqlDbType.NVarChar, -1).Value = @event.Json;
+        for (var i = 0; i < events.Length; i++)
+        {
+            command.Parameters.Add($"@type{i}", SqlDbType.NVarChar, 200).Value = events[i].EventType;
+            command.Parameters.Add($"@data{i}", SqlDbType.NVarChar, -1).Value = events[i].Json;
+        }
+
         await command.ExecuteNonQueryAsync(cancellationToken).ConfigureAwait(false);
     }
 

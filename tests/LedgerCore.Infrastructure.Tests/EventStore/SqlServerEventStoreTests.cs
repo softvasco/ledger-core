@@ -93,6 +93,22 @@ public class SqlServerEventStoreTests(SqlServerFixture fixture)
         Assert.Equal((0L, 1L), (conflict.ExpectedVersion, conflict.ActualVersion));
     }
 
+    // more events than one insert statement takes, so the append is split
+    [Fact]
+    public async Task A_large_append_keeps_versions_and_positions_in_the_order_given()
+    {
+        var stream = StreamId.For("test", Guid.CreateVersion7());
+        var events = Enumerable.Range(1, 1_201).Select(n => new SomethingHappened(n, DateTimeOffset.UnixEpoch)).ToArray();
+
+        var version = await fixture.Store.AppendAsync(stream, 0, events, Token);
+
+        var stored = await fixture.Store.ReadStreamAsync(stream, cancellationToken: Token).ToListAsync(Token);
+        Assert.Equal(1_201, version);
+        Assert.Equal(Enumerable.Range(1, 1_201), stored.Select(e => ((SomethingHappened)e.Event).Number));
+        Assert.Equal(Enumerable.Range(1, 1_201).Select(v => (long)v), stored.Select(e => e.Version));
+        Assert.Equal(stored.Select(e => e.Position).Order(), stored.Select(e => e.Position));
+    }
+
     private static async Task TakeAppendLock(SqlConnection connection, SqlTransaction transaction)
     {
         await using var command = new SqlCommand("sp_getapplock", connection, transaction)
