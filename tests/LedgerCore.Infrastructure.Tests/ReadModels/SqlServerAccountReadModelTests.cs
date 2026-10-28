@@ -67,7 +67,7 @@ public class SqlServerAccountReadModelTests(SqlServerFixture fixture) : IClassFi
     [Fact]
     public async Task A_restarted_runner_picks_up_from_the_checkpoint_in_the_database()
     {
-        var connectionString = await NewDatabase();
+        var connectionString = await fixture.CreateDatabaseAsync(Token);
         var events = new InMemoryEventStore();
         var stream = StreamId.For("account", _account.Value);
         await events.AppendAsync(stream, 0, [Opened(), Deposited(10m)], Token);
@@ -131,21 +131,10 @@ public class SqlServerAccountReadModelTests(SqlServerFixture fixture) : IClassFi
 
     private async Task<SqlServerAccountReadModel> NewReadModel()
     {
-        _connectionString = await NewDatabase();
+        _connectionString = await fixture.CreateDatabaseAsync(Token);
         var readModel = new SqlServerAccountReadModel(_connectionString);
         await readModel.CreateSchemaAsync(Token);
         return readModel;
-    }
-
-    // every test gets its own database, since they all share the projection's one checkpoint row
-    private async Task<string> NewDatabase()
-    {
-        var name = $"read_{Guid.NewGuid():N}";
-        await using var connection = new SqlConnection(fixture.ConnectionString);
-        await connection.OpenAsync(Token);
-        await using var create = new SqlCommand($"create database {name}", connection);
-        await create.ExecuteNonQueryAsync(Token);
-        return new SqlConnectionStringBuilder(fixture.ConnectionString) { InitialCatalog = name }.ConnectionString;
     }
 
     private AccountOpened Opened() => new(_account, Iban, Currency.Eur, Monday);
