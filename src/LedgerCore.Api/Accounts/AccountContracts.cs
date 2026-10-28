@@ -24,3 +24,20 @@ public sealed record AccountResponse(Guid Id, string Iban, string Currency, stri
         summary.Balance.Amount,
         summary.Version);
 }
+
+public sealed record StatementLineResponse(
+    long Version, string Kind, decimal Amount, decimal BalanceAfter, string Currency, DateTimeOffset OccurredAt);
+
+/// <summary>Send <see cref="NextAfter"/> back as after for more; null on the last page.</summary>
+public sealed record StatementResponse(IReadOnlyList<StatementLineResponse> Lines, long? NextAfter)
+{
+    public static StatementResponse From(StatementPage page) => new(
+        [.. page.Lines.Select(l => new StatementLineResponse(
+            l.Version,
+            l.Kind == StatementLineKind.Deposit ? "deposit" : "withdrawal",
+            l.Amount.Amount,
+            l.BalanceAfter.Amount,
+            l.Amount.Currency.Code,
+            l.OccurredAt))],
+        page.NextAfterVersion);
+}

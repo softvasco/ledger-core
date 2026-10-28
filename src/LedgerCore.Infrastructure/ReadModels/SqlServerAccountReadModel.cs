@@ -9,8 +9,11 @@ using Microsoft.EntityFrameworkCore;
 namespace LedgerCore.Infrastructure.ReadModels;
 
 /// <summary>Balances and statement lines in SQL Server, with the checkpoint beside them.</summary>
-public sealed class SqlServerAccountReadModel : ICheckpointedProjection, IAccountSummaries
+public sealed class SqlServerAccountReadModel : ICheckpointedProjection, IAccountSummaries, IAccountStatements
 {
+    private const string DepositKind = "deposit";
+    private const string WithdrawalKind = "withdrawal";
+
     private readonly DbContextOptions<ReadModelContext> _options;
 
     public SqlServerAccountReadModel(string connectionString)
@@ -75,6 +78,42 @@ public sealed class SqlServerAccountReadModel : ICheckpointedProjection, IAccoun
         return row is null ? null : ToSummary(row);
     }
 
+    public async Task<StatementPage?> GetAsync(GetStatement query, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+
+        await using var db = new ReadModelContext(_options);
+        var currencyCode = await db.Balances.AsNoTracking()
+            .Where(b => b.AccountId == query.AccountId.Value)
+            .Select(b => b.Currency)
+            .SingleOrDefaultAsync(cancellationToken)
+            .ConfigureAwait(false);
+        if (currencyCode is null)
+        {
+            return null;
+        }
+
+        // keyset paging on the stream version: a deposit landing mid-read can't shift the next page
+        var lines = db.StatementLines.AsNoTracking()
+            .Where(l => l.AccountId == query.AccountId.Value && l.Version > query.AfterVersion);
+        if (query.From is { } from)
+        {
+            lines = lines.Where(l => l.OccurredAt >= from);
+        }
+
+        if (query.To is { } to)
+        {
+            lines = lines.Where(l => l.OccurredAt < to);
+        }
+
+        var rows = await lines.OrderBy(l => l.Version)
+            .Take(query.PageSize + 1)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+        var currency = Currency.FromCode(currencyCode);
+        return StatementPaging.Page([.. rows.Select(r => ToLine(r, currency))], query.PageSize);
+    }
+
     private static async Task ApplyToAccountAsync(
         ReadModelContext db,
         AccountId id,
@@ -93,8 +132,8 @@ public sealed class SqlServerAccountReadModel : ICheckpointedProjection, IAccoun
 
         var line = recorded.Event switch
         {
-            MoneyDeposited e => (Kind: "deposit", Amount: e.Amount.Amount, e.OccurredAt),
-            MoneyWithdrawn e => (Kind: "withdrawal", Amount: -e.Amount.Amount, e.OccurredAt),
+            MoneyDeposited e => (Kind: DepositKind, Amount: e.Amount.Amount, e.OccurredAt),
+            MoneyWithdrawn e => (Kind: WithdrawalKind, Amount: -e.Amount.Amount, e.OccurredAt),
             _ => default,
         };
         if (line.Kind is not null)
@@ -111,6 +150,13 @@ public sealed class SqlServerAccountReadModel : ICheckpointedProjection, IAccoun
             });
         }
     }
+
+    private static StatementLine ToLine(StatementLineRow row, Currency currency) => new(
+        row.Version,
+        row.Kind == DepositKind ? StatementLineKind.Deposit : StatementLineKind.Withdrawal,
+        Money.Of(row.Amount, currency),
+        Money.Of(row.BalanceAfter, currency),
+        row.OccurredAt);
 
     private static AccountSummary ToSummary(AccountBalanceRow row)
     {

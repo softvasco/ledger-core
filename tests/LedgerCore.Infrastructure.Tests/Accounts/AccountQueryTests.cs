@@ -36,6 +36,7 @@ public sealed class AccountQueryTests : IDisposable
             .AddSingleton<ISnapshotStore<AccountSnapshot>>(new InMemorySnapshotStore<AccountSnapshot>())
             .AddSingleton(new SnapshotPolicy(100))
             .AddSingleton<IAccountSummaries>(_summaries)
+            .AddSingleton<IAccountStatements>(_summaries)
             .AddScoped<AccountRepository>()
             .AddScoped<TransferRepository>()
             .AddScoped<TransferProcessManager>()

@@ -36,6 +36,17 @@ public sealed class SqlServerFixture : IAsyncLifetime
         await Store.CreateSchemaAsync();
     }
 
+    // for tests that need an empty database of their own, like a read model with its one checkpoint row
+    public async Task<string> CreateDatabaseAsync(CancellationToken cancellationToken)
+    {
+        var name = $"test_{Guid.NewGuid():N}";
+        await using var connection = new SqlConnection(ConnectionString);
+        await connection.OpenAsync(cancellationToken);
+        await using var create = new SqlCommand($"create database {name}", connection);
+        await create.ExecuteNonQueryAsync(cancellationToken);
+        return new SqlConnectionStringBuilder(ConnectionString) { InitialCatalog = name }.ConnectionString;
+    }
+
     public async ValueTask DisposeAsync() => await _container.DisposeAsync();
 }
 
