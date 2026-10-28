@@ -28,7 +28,8 @@ Done:
 - Benchmarks for appends and stream reads, with the results in [docs/performance.md](docs/performance.md).
 - Commands and queries through a small hand-written dispatcher, one handler per message ([ADR-0007](docs/adr/0007-own-command-and-query-dispatcher.md)). Commands run through tracing, logging and validation behaviors; validation reports every error at once.
 - Deposit and Withdraw with the balance kept on the account stream, so two racing withdrawals can't both pass the funds check ([ADR-0006](docs/adr/0006-balance-on-the-account-stream.md)).
-- Read models fed by a projection runner that follows the store's global position, with a checkpoint per projection ([ADR-0012](docs/adr/0012-catch-up-projections-with-checkpoints.md)).
+- Read models fed by a projection runner that follows the store's global position, with a checkpoint per projection ([ADR-0012](docs/adr/0012-catch-up-projections-with-checkpoints.md)). On SQL Server, balances and statement lines are tables written with EF Core, each event committing its rows and the checkpoint together ([ADR-0013](docs/adr/0013-ef-core-for-the-sql-server-read-model.md)).
+- `GET /accounts/{id}/statement`: deposits and withdrawals, oldest first, with the balance after each. The cursor is the stream version, so a deposit that lands between two pages doesn't shift the next one.
 - Account endpoints on a minimal API. Every error is an RFC 9457 problem with a stable `code` to branch on, for example a 409 with `account.insufficient_funds` when a withdrawal is more than the balance ([ADR-0008](docs/adr/0008-problem-details-for-every-error.md)).
 - An OpenAPI 3.1 document at `/openapi/v1.json` that lists every status an endpoint can answer, and a Scalar UI at `/scalar` in development.
 - `Idempotency-Key` on every POST: a retry gets the stored response back, the same key with another body is a 422 ([ADR-0009](docs/adr/0009-idempotency-keys-for-post.md)). It is an endpoint filter, so callers that run the endpoint in-process get it too ([ADR-0010](docs/adr/0010-idempotency-as-an-endpoint-filter.md)).
@@ -37,7 +38,7 @@ Done:
 
 Coming next:
 - Transactional outbox (built on outbox-kit), then Azure Service Bus.
-- Read models on SQL Server, .NET Aspire, OpenTelemetry, and a Blazor back office.
+- Rebuilding projections, .NET Aspire, OpenTelemetry, and a Blazor back office.
 
 ## Architecture
 
@@ -110,9 +111,34 @@ dotnet test
 dotnet run --project src/LedgerCore.Api
 ```
 
-The API keeps everything in memory for now. Open http://localhost:5174/scalar to open an account, post deposits and withdrawals and move money between accounts, or run the requests in [LedgerCore.Api.http](src/LedgerCore.Api/LedgerCore.Api.http) from VS Code (REST Client) or Visual Studio. They cover each endpoint, a retried deposit, and the main errors.
+Without a connection string the API keeps everything in memory. Open http://localhost:5174/scalar to open an account, post deposits and withdrawals and move money between accounts, or run the requests in [LedgerCore.Api.http](src/LedgerCore.Api/LedgerCore.Api.http) from VS Code (REST Client) or Visual Studio. They cover each endpoint, a retried deposit, and the main errors.
 
-Needs the .NET 10 SDK, and Docker for the PostgreSQL and SQL Server tests (Testcontainers starts the databases). A one-command run with .NET Aspire comes once there is infrastructure to run.
+### On SQL Server
+
+```bash
+docker run -d --name ledger-sql -e ACCEPT_EULA=Y -e MSSQL_SA_PASSWORD='Ledger_dev_1' -p 14333:1433 mcr.microsoft.com/mssql/server:2022-latest
+docker exec ledger-sql /opt/mssql-tools18/bin/sqlcmd -C -S localhost -U sa -P 'Ledger_dev_1' -Q "create database ledger"
+
+export ConnectionStrings__Ledger='Server=localhost,14333;Database=ledger;User Id=sa;Password=Ledger_dev_1;TrustServerCertificate=true'
+export Storage__Provider=SqlServer
+dotnet run --project src/LedgerCore.Api
+```
+
+The API creates its tables on start. Balances and statements come from SQL Server tables that survive a restart (`GET /accounts/{id}/statement`).
+
+### On PostgreSQL
+
+```bash
+docker run -d --name ledger-pg -e POSTGRES_PASSWORD=ledger -e POSTGRES_DB=ledger -p 15432:5432 postgres:18-alpine
+
+export ConnectionStrings__Ledger='Host=localhost;Port=15432;Database=ledger;Username=postgres;Password=ledger'
+export Storage__Provider=PostgreSql
+dotnet run --project src/LedgerCore.Api
+```
+
+On PostgreSQL the read model is still in memory and replays the events on start. What differs between the two engines, and why, is in [ADR-0014](docs/adr/0014-postgresql-and-sql-server-behind-the-same-ports.md).
+
+Needs the .NET 10 SDK, and Docker for the databases and for the PostgreSQL and SQL Server tests (Testcontainers starts them). A one-command run with .NET Aspire comes later.
 
 ## License
 
