@@ -126,6 +126,49 @@ public sealed class AccountEndpointTests : IAsyncDisposable
         await _factory.DisposeAsync();
     }
 
+    [Fact]
+    public async Task The_statement_pages_through_deposits_and_withdrawals_oldest_first()
+    {
+        var id = await OpenAsync();
+        await PostAmountAsync(id, "deposits", 100m);
+        await PostAmountAsync(id, "withdrawals", 30m);
+        await PostAmountAsync(id, "deposits", 5m);
+        await _factory.Services.GetRequiredService<ProjectionRunner>().CatchUpAsync(Token);
+
+        var first = await _client.GetFromJsonAsync<StatementResponse>($"/accounts/{id}/statement?pageSize=2", Token);
+        var rest = await _client.GetFromJsonAsync<StatementResponse>(
+            $"/accounts/{id}/statement?pageSize=2&after={first!.NextAfter}", Token);
+
+        Assert.Equal([("deposit", 100m, 100m), ("withdrawal", -30m, 70m)], first.Lines.Select(l => (l.Kind, l.Amount, l.BalanceAfter)));
+        Assert.Equal([("deposit", 5m, 75m)], rest!.Lines.Select(l => (l.Kind, l.Amount, l.BalanceAfter)));
+        Assert.Null(rest.NextAfter);
+    }
+
+    [Theory]
+    [InlineData("pageSize=0", "pageSize")]
+    [InlineData("pageSize=201", "pageSize")]
+    [InlineData("after=-1", "after")]
+    [InlineData("from=2026-10-02T00:00:00Z&to=2026-10-01T00:00:00Z", "to")]
+    public async Task A_statement_query_out_of_range_is_400_naming_the_parameter(string query, string parameter)
+    {
+        var id = await OpenAsync();
+
+        var response = await _client.GetAsync($"/accounts/{id}/statement?{query}", Token);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>(Token);
+        Assert.Contains(parameter, problem!.Errors.Keys);
+    }
+
+    [Fact]
+    public async Task The_statement_of_an_unknown_account_is_404()
+    {
+        var response = await _client.GetAsync($"/accounts/{Guid.CreateVersion7()}/statement", Token);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("account.not_found", (await ReadProblemAsync(response)).Extensions["code"]?.ToString());
+    }
+
     private async Task<Guid> OpenAsync()
     {
         var response = await _client.PostAsJsonAsync("/accounts", new OpenAccountRequest(SomeIban, "EUR"), Token);

@@ -29,6 +29,12 @@ internal static class AccountEndpoints
             .ProducesProblem(StatusCodes.Status400BadRequest)
             .ProducesProblem(StatusCodes.Status404NotFound);
 
+        accounts.MapGet("/{id}/statement", GetStatementAsync)
+            .WithName("GetStatement")
+            .WithSummary("Read an account's deposits and withdrawals, oldest first, a page at a time")
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
         accounts.MapPost("/{id}/deposits", DepositAsync)
             .WithName("Deposit")
             .WithSummary("Credit an account")
@@ -78,6 +84,40 @@ internal static class AccountEndpoints
     {
         var summary = await queries.DispatchAsync(new GetAccount(id), cancellationToken);
         return summary is null ? AccountErrors.NotFound(id).ToProblem() : TypedResults.Ok(AccountResponse.From(summary));
+    }
+
+    private static async Task<Results<Ok<StatementResponse>, ValidationProblem, ProblemHttpResult>> GetStatementAsync(
+        AccountId id,
+        IQueryDispatcher queries,
+        CancellationToken cancellationToken,
+        long after = 0,
+        int pageSize = GetStatement.DefaultPageSize,
+        DateTimeOffset? from = null,
+        DateTimeOffset? to = null)
+    {
+        var errors = new Dictionary<string, string[]>();
+        if (after < 0)
+        {
+            errors["after"] = ["Use the nextAfter value from the previous page, or leave it out."];
+        }
+
+        if (pageSize is < 1 or > GetStatement.MaxPageSize)
+        {
+            errors["pageSize"] = [$"Between 1 and {GetStatement.MaxPageSize}."];
+        }
+
+        if (from >= to)
+        {
+            errors["to"] = ["Must be later than from."];
+        }
+
+        if (errors.Count > 0)
+        {
+            return TypedResults.ValidationProblem(errors);
+        }
+
+        var page = await queries.DispatchAsync(new GetStatement(id, after, pageSize, from, to), cancellationToken);
+        return page is null ? AccountErrors.NotFound(id).ToProblem() : TypedResults.Ok(StatementResponse.From(page));
     }
 
     private static async Task<Results<Ok<BalanceResponse>, ValidationProblem, ProblemHttpResult>> DepositAsync(
