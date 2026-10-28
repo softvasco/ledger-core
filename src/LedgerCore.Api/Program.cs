@@ -11,7 +11,6 @@ using LedgerCore.Application.Projections;
 using LedgerCore.Application.Queries;
 using LedgerCore.Application.Snapshots;
 using LedgerCore.Application.Transfers;
-using LedgerCore.Infrastructure.Accounts;
 using LedgerCore.Infrastructure.Projections;
 using Scalar.AspNetCore;
 
@@ -26,11 +25,8 @@ builder.Services.AddSingleton(TimeProvider.System);
 builder.Services.AddLedgerStorage(builder.Configuration);
 builder.Services.AddSingleton(new IdempotencyOptions());
 builder.Services.AddSingleton(new SnapshotPolicy(100));
-builder.Services.AddSingleton<InMemoryAccountSummaries>();
-builder.Services.AddSingleton<IAccountSummaries>(sp => sp.GetRequiredService<InMemoryAccountSummaries>());
-builder.Services.AddSingleton<IProjection>(sp => sp.GetRequiredService<InMemoryAccountSummaries>());
 
-// the summaries live in memory, so their checkpoint has to as well
+// for read models in memory; the SQL Server one keeps its checkpoint in its own tables
 builder.Services.AddSingleton<ICheckpointStore, InMemoryCheckpointStore>();
 builder.Services.AddSingleton<ProjectionRunner>();
 builder.Services.AddHostedService<ProjectionCatchUp>();
