@@ -90,6 +90,20 @@ public class ProjectionRunnerTests
     }
 
     [Fact]
+    public async Task A_projection_that_keeps_its_own_checkpoint_starts_there_and_the_runner_saves_nothing_for_it()
+    {
+        await Append("a", 1, 2, 3);
+        var numbers = new SelfCheckpointedNumbers("numbers", checkpoint: 1);
+        using var runner = Runner(numbers);
+
+        Assert.Equal(2, await runner.CatchUpAsync(Token));
+
+        Assert.Equal([2, 3], numbers.Seen);
+        Assert.Equal(3, numbers.Checkpoint);
+        Assert.Empty(_checkpoints.Saved);
+    }
+
+    [Fact]
     public void Two_projections_cannot_share_a_checkpoint_name() =>
         Assert.Throws<ArgumentException>(() => Runner(new Numbers("same"), new Numbers("same")));
 
@@ -133,6 +147,25 @@ public class ProjectionRunnerTests
             }
 
             Seen.Add(number);
+            return Task.CompletedTask;
+        }
+    }
+
+    // stands in for a database projection that writes its rows and checkpoint together
+    private sealed class SelfCheckpointedNumbers(string name, long checkpoint) : ICheckpointedProjection
+    {
+        public string Name => name;
+
+        public List<int> Seen { get; } = [];
+
+        public long Checkpoint { get; private set; } = checkpoint;
+
+        public Task<long> GetCheckpointAsync(CancellationToken cancellationToken = default) => Task.FromResult(Checkpoint);
+
+        public Task ApplyAsync(RecordedEvent recorded, CancellationToken cancellationToken = default)
+        {
+            Seen.Add(((SomethingHappened)recorded.Event).Number);
+            Checkpoint = recorded.Position;
             return Task.CompletedTask;
         }
     }

@@ -59,6 +59,11 @@ public sealed class ProjectionRunner : IDisposable
 
     private async Task<int> CatchUpAsync(IProjection projection, CancellationToken cancellationToken)
     {
+        if (projection is ICheckpointedProjection checkpointed)
+        {
+            return await CatchUpAsync(checkpointed, cancellationToken).ConfigureAwait(false);
+        }
+
         var saved = await _checkpoints.GetAsync(projection.Name, cancellationToken).ConfigureAwait(false);
         var last = saved;
         var applied = 0;
@@ -84,6 +89,19 @@ public sealed class ProjectionRunner : IDisposable
             {
                 await _checkpoints.SaveAsync(projection.Name, last, CancellationToken.None).ConfigureAwait(false);
             }
+        }
+
+        return applied;
+    }
+
+    private async Task<int> CatchUpAsync(ICheckpointedProjection projection, CancellationToken cancellationToken)
+    {
+        var from = await projection.GetCheckpointAsync(cancellationToken).ConfigureAwait(false);
+        var applied = 0;
+        await foreach (var recorded in _events.ReadAllAsync(from, cancellationToken).ConfigureAwait(false))
+        {
+            await projection.ApplyAsync(recorded, cancellationToken).ConfigureAwait(false);
+            applied++;
         }
 
         return applied;
