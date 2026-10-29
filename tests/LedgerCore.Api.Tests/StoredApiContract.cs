@@ -54,6 +54,24 @@ public abstract class StoredApiContract(string connectionString, string provider
         Assert.Equal(50m, await BalanceAsync(second, account));
     }
 
+    [Fact]
+    public async Task Amounts_come_back_with_the_currency_minor_units_whatever_the_storage()
+    {
+        await using var api = StartApi();
+        using var client = api.CreateClient();
+        var account = await OpenAsync(client);
+        await client.PostAsJsonAsync($"/accounts/{account}/deposits", new AmountRequest(100m, "EUR"), Token);
+        await client.PostAsJsonAsync($"/accounts/{account}/withdrawals", new AmountRequest(29.5m, "EUR"), Token);
+        await api.Services.GetRequiredService<ProjectionRunner>().CatchUpAsync(Token);
+
+        var balance = await client.GetStringAsync($"/accounts/{account}", Token);
+        var statement = await client.GetStringAsync($"/accounts/{account}/statement", Token);
+
+        Assert.Contains("\"balance\":70.50,", balance, StringComparison.Ordinal);
+        Assert.Contains("\"amount\":100.00,\"balanceAfter\":100.00,", statement, StringComparison.Ordinal);
+        Assert.Contains("\"amount\":-29.50,\"balanceAfter\":70.50,", statement, StringComparison.Ordinal);
+    }
+
     private StoredApi StartApi() => new(connectionString, provider);
 
     private static async Task<Guid> OpenAsync(HttpClient client)

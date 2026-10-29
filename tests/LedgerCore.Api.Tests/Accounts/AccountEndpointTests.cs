@@ -43,6 +43,16 @@ public sealed class AccountEndpointTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task Amounts_go_out_with_the_currency_minor_units_however_they_were_sent()
+    {
+        var id = await OpenAsync();
+
+        var response = await PostAmountAsync(id, "deposits", 100m);
+
+        Assert.Equal("{\"balance\":100.00,\"currency\":\"EUR\"}", await response.Content.ReadAsStringAsync(Token));
+    }
+
+    [Fact]
     public async Task Overdrawing_is_a_conflict_problem_with_the_error_code()
     {
         var id = await OpenAsync();

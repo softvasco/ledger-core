@@ -10,7 +10,7 @@ A client depends on more than the routes and the JSON shapes. For this API the c
 - Request and response bodies, including which fields are required.
 - The `code` extension on problem details (`account.insufficient_funds`, `idempotency.key_reused`, ...). Clients are told to branch on it ([ADR-0008](adr/0008-problem-details-for-every-error.md)), so a renamed code breaks them as much as a renamed field.
 - The `Idempotency-Key` rules: which endpoints honour it, and that the same key with a different request is a 422 ([ADR-0009](adr/0009-idempotency-keys-for-post.md)).
-- Money as a JSON number with at most the currency's minor units, and a separate ISO 4217 `currency` field.
+- Money as a JSON number with exactly the currency's minor units (EUR 100 is `100.00`, whatever the storage), and a separate ISO 4217 `currency` field.
 
 mcp-kit is being built to expose these endpoints as MCP tools, with the tool schemas generated from the same request types. A change to the HTTP contract will be a change to the tools, and an agent's prompt or a saved conversation can depend on a field name the same way client code does.
 

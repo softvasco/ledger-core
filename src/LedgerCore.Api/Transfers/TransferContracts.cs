@@ -1,3 +1,4 @@
+using LedgerCore.Api.Accounts;
 using LedgerCore.Application.Transfers;
 
 namespace LedgerCore.Api.Transfers;
@@ -11,7 +12,7 @@ public sealed record TransferResponse(
         summary.Id.Value,
         summary.Source.Value,
         summary.Destination.Value,
-        summary.Amount.Amount,
+        summary.Amount.ForResponse(),
         summary.Amount.Currency.Code,
         summary.Status.ToString(),
         summary.Reason);

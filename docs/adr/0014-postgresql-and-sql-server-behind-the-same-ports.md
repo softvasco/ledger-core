@@ -38,5 +38,5 @@ The SQL Server tests run with READ_COMMITTED_SNAPSHOT on, because then readers b
 
 - A storage change is two implementations and one contract. It takes longer, and a feature that one engine can't do well has to be redesigned for both or not done.
 - The contract tests are what keeps the two equal. A difference that no test covers will drift.
-- Amounts come back with the scale of the column on SQL Server (`decimal(19, 4)`, so `100.0000`), while the in-memory read model returns `100`. Same value, different JSON. Not normalised yet.
+- Amounts come back from SQL Server with the scale of the column (`decimal(19, 4)`, so `100.0000`), while the in-memory read model keeps the scale the client sent. The API writes every amount with the currency's minor units, so both answer `100.00`. A test in the stored API contract checks the JSON text on both engines, because comparing decimals would call `100.0000` and `100` equal.
 - Picking an engine is configuration, not a build flag, so one image runs on either.
