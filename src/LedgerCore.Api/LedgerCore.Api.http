@@ -141,6 +141,20 @@ Content-Type: application/json
 
 ###
 
+# the admin routes need Admin__Enabled=true in the environment
+GET {{baseUrl}}/admin/projections
+
+###
+
+# 202, then follow the Location to see the events applied so far
+POST {{baseUrl}}/admin/projections/account-summaries/rebuild
+
+###
+
+GET {{baseUrl}}/admin/projections/account-summaries/rebuild
+
+###
+
 GET {{baseUrl}}/health
 
 ###
