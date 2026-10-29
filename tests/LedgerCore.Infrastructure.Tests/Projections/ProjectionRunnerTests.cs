@@ -104,6 +104,94 @@ public class ProjectionRunnerTests
     }
 
     [Fact]
+    public async Task A_rebuild_empties_the_projection_and_applies_every_event_again()
+    {
+        await Append("a", 1, 2);
+        await Append("b", 3);
+        var numbers = new Numbers("numbers");
+        using var runner = Runner(numbers);
+        await runner.CatchUpAsync(Token);
+
+        Assert.Equal(3, await runner.RebuildAsync("numbers", cancellationToken: Token));
+
+        Assert.Equal([1, 2, 3], numbers.Seen);
+        Assert.Equal(1, numbers.Resets);
+        Assert.Equal(3, await _checkpoints.GetAsync("numbers", Token));
+    }
+
+    [Fact]
+    public async Task A_rebuild_reports_progress_once_per_batch_and_once_at_the_end()
+    {
+        await Append("a", 1, 2, 3, 4, 5);
+        using var runner = Runner(checkpointEvery: 2, new Numbers("numbers"));
+        var progress = new RecordedProgress();
+
+        await runner.RebuildAsync("numbers", progress, Token);
+
+        Assert.Equal(
+            [new("numbers", 2, 2), new("numbers", 4, 4), new RebuildProgress("numbers", 5, 5)],
+            progress.Reports);
+    }
+
+    [Fact]
+    public async Task A_rebuild_of_an_empty_store_still_reports_once()
+    {
+        using var runner = Runner(new Numbers("numbers"));
+        var progress = new RecordedProgress();
+
+        Assert.Equal(0, await runner.RebuildAsync("numbers", progress, Token));
+
+        Assert.Equal([new RebuildProgress("numbers", 0, 0)], progress.Reports);
+    }
+
+    [Fact]
+    public async Task A_projection_that_keeps_its_own_checkpoint_is_rebuilt_from_the_first_event()
+    {
+        await Append("a", 1, 2, 3);
+        var numbers = new SelfCheckpointedNumbers("numbers", checkpoint: 3);
+        using var runner = Runner(numbers);
+
+        Assert.Equal(3, await runner.RebuildAsync("numbers", cancellationToken: Token));
+
+        Assert.Equal([1, 2, 3], numbers.Seen);
+        Assert.Empty(_checkpoints.Saved);
+    }
+
+    [Fact]
+    public async Task A_rebuild_leaves_the_other_projections_alone()
+    {
+        await Append("a", 1, 2);
+        var rebuilt = new Numbers("rebuilt");
+        var other = new Numbers("other");
+        using var runner = Runner(rebuilt, other);
+        await runner.CatchUpAsync(Token);
+
+        await runner.RebuildAsync("rebuilt", cancellationToken: Token);
+
+        Assert.Equal(0, other.Resets);
+        Assert.Equal([1, 2], other.Seen);
+    }
+
+    [Fact]
+    public async Task Rebuilding_an_unknown_projection_names_it_in_the_error()
+    {
+        using var runner = Runner(new Numbers("numbers"));
+
+        var error = await Assert.ThrowsAsync<ArgumentException>(() => runner.RebuildAsync("nope", cancellationToken: Token));
+
+        Assert.Contains("'nope'", error.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public async Task A_projection_that_cannot_be_emptied_cannot_be_rebuilt()
+    {
+        await Append("a", 1);
+        using var runner = Runner(new AppendOnly("append-only"));
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => runner.RebuildAsync("append-only", cancellationToken: Token));
+    }
+
+    [Fact]
     public void Two_projections_cannot_share_a_checkpoint_name() =>
         Assert.Throws<ArgumentException>(() => Runner(new Numbers("same"), new Numbers("same")));
 
@@ -130,13 +218,22 @@ public class ProjectionRunnerTests
         return id;
     }
 
-    private sealed class Numbers(string name) : IProjection
+    private sealed class Numbers(string name) : IRebuildableProjection
     {
         public string Name => name;
 
         public List<int> Seen { get; } = [];
 
         public int? FailOn { get; set; }
+
+        public int Resets { get; private set; }
+
+        public Task ResetAsync(CancellationToken cancellationToken = default)
+        {
+            Seen.Clear();
+            Resets++;
+            return Task.CompletedTask;
+        }
 
         public Task ApplyAsync(RecordedEvent recorded, CancellationToken cancellationToken = default)
         {
@@ -152,13 +249,20 @@ public class ProjectionRunnerTests
     }
 
     // stands in for a database projection that writes its rows and checkpoint together
-    private sealed class SelfCheckpointedNumbers(string name, long checkpoint) : ICheckpointedProjection
+    private sealed class SelfCheckpointedNumbers(string name, long checkpoint) : ICheckpointedProjection, IRebuildableProjection
     {
         public string Name => name;
 
         public List<int> Seen { get; } = [];
 
         public long Checkpoint { get; private set; } = checkpoint;
+
+        public Task ResetAsync(CancellationToken cancellationToken = default)
+        {
+            Seen.Clear();
+            Checkpoint = 0;
+            return Task.CompletedTask;
+        }
 
         public Task<long> GetCheckpointAsync(CancellationToken cancellationToken = default) => Task.FromResult(Checkpoint);
 
@@ -168,6 +272,21 @@ public class ProjectionRunnerTests
             Checkpoint = recorded.Position;
             return Task.CompletedTask;
         }
+    }
+
+    private sealed class AppendOnly(string name) : IProjection
+    {
+        public string Name => name;
+
+        public Task ApplyAsync(RecordedEvent recorded, CancellationToken cancellationToken = default) => Task.CompletedTask;
+    }
+
+    // Progress<T> posts to the sync context, so the order of reports would depend on the scheduler
+    private sealed class RecordedProgress : IProgress<RebuildProgress>
+    {
+        public List<RebuildProgress> Reports { get; } = [];
+
+        public void Report(RebuildProgress value) => Reports.Add(value);
     }
 
     private sealed class CountingCheckpointStore : ICheckpointStore
