@@ -9,7 +9,8 @@ using Microsoft.EntityFrameworkCore;
 namespace LedgerCore.Infrastructure.ReadModels;
 
 /// <summary>Balances and statement lines in SQL Server, with the checkpoint beside them.</summary>
-public sealed class SqlServerAccountReadModel : ICheckpointedProjection, IAccountSummaries, IAccountStatements
+public sealed class SqlServerAccountReadModel :
+    ICheckpointedProjection, IRebuildableProjection, IAccountSummaries, IAccountStatements
 {
     private const string DepositKind = "deposit";
     private const string WithdrawalKind = "withdrawal";
@@ -43,6 +44,16 @@ public sealed class SqlServerAccountReadModel : ICheckpointedProjection, IAccoun
             .Select(c => c.Position)
             .SingleOrDefaultAsync(cancellationToken)
             .ConfigureAwait(false);
+    }
+
+    public async Task ResetAsync(CancellationToken cancellationToken = default)
+    {
+        await using var db = new ReadModelContext(_options);
+        await using var transaction = await db.Database.BeginTransactionAsync(cancellationToken).ConfigureAwait(false);
+        await db.StatementLines.ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+        await db.Balances.ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+        await db.Checkpoints.Where(c => c.Projection == Name).ExecuteDeleteAsync(cancellationToken).ConfigureAwait(false);
+        await transaction.CommitAsync(cancellationToken).ConfigureAwait(false);
     }
 
     public async Task ApplyAsync(RecordedEvent recorded, CancellationToken cancellationToken = default)

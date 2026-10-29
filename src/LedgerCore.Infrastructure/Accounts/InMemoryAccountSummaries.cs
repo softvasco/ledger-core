@@ -9,7 +9,7 @@ using LedgerCore.Domain.Accounts.Events;
 namespace LedgerCore.Infrastructure.Accounts;
 
 /// <summary>Summaries and statements in memory, for tests and local runs.</summary>
-public sealed class InMemoryAccountSummaries : IAccountSummaries, IAccountStatements, IProjection
+public sealed class InMemoryAccountSummaries : IAccountSummaries, IAccountStatements, IRebuildableProjection
 {
     private readonly ConcurrentDictionary<AccountId, AccountSummary> _summaries = new();
     private readonly ConcurrentDictionary<AccountId, ImmutableList<StatementLine>> _lines = new();
@@ -18,6 +18,13 @@ public sealed class InMemoryAccountSummaries : IAccountSummaries, IAccountStatem
 
     public Task<AccountSummary?> GetAsync(AccountId id, CancellationToken cancellationToken = default) =>
         Task.FromResult(_summaries.TryGetValue(id, out var summary) ? summary : null);
+
+    public Task ResetAsync(CancellationToken cancellationToken = default)
+    {
+        _summaries.Clear();
+        _lines.Clear();
+        return Task.CompletedTask;
+    }
 
     public Task ApplyAsync(RecordedEvent recorded, CancellationToken cancellationToken = default)
     {

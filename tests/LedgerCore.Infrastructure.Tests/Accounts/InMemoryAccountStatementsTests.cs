@@ -6,9 +6,9 @@ namespace LedgerCore.Infrastructure.Tests.Accounts;
 
 public class InMemoryAccountStatementsTests : AccountStatementsContract
 {
-    protected override Task<(IProjection Projection, IAccountStatements Statements)> CreateAsync()
+    protected override Task<(IRebuildableProjection Projection, IAccountStatements Statements)> CreateAsync()
     {
         var summaries = new InMemoryAccountSummaries();
-        return Task.FromResult<(IProjection, IAccountStatements)>((summaries, summaries));
+        return Task.FromResult<(IRebuildableProjection, IAccountStatements)>((summaries, summaries));
     }
 }
