@@ -30,6 +30,7 @@ builder.Services.AddSingleton(new SnapshotPolicy(100));
 builder.Services.AddSingleton<ICheckpointStore, InMemoryCheckpointStore>();
 builder.Services.AddSingleton<ProjectionRunner>();
 builder.Services.AddHostedService<ProjectionCatchUp>();
+builder.Services.AddSingleton<ProjectionRebuilds>();
 builder.Services.AddScoped<AccountRepository>();
 builder.Services.AddScoped<TransferRepository>();
 builder.Services.AddScoped<TransferProcessManager>();
@@ -50,5 +51,6 @@ if (app.Environment.IsDevelopment())
 app.MapHealthChecks("/health");
 app.MapAccounts();
 app.MapTransfers();
+app.MapProjectionAdmin(app.Configuration);
 
 app.Run();
