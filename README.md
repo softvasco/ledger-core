@@ -29,6 +29,7 @@ Done:
 - Commands and queries through a small hand-written dispatcher, one handler per message ([ADR-0007](docs/adr/0007-own-command-and-query-dispatcher.md)). Commands run through tracing, logging and validation behaviors; validation reports every error at once.
 - Deposit and Withdraw with the balance kept on the account stream, so two racing withdrawals can't both pass the funds check ([ADR-0006](docs/adr/0006-balance-on-the-account-stream.md)).
 - Read models fed by a projection runner that follows the store's global position, with a checkpoint per projection ([ADR-0012](docs/adr/0012-catch-up-projections-with-checkpoints.md)). On SQL Server, balances and statement lines are tables written with EF Core, each event committing its rows and the checkpoint together ([ADR-0013](docs/adr/0013-ef-core-for-the-sql-server-read-model.md)).
+- Rebuilding a read model without a restart: `POST /admin/projections/{name}/rebuild` empties it and replays the store in the background, and a GET on the same route shows how far it has got. Off unless `Admin:Enabled` is true ([ADR-0015](docs/adr/0015-rebuilding-a-projection-in-place.md)).
 - `GET /accounts/{id}/statement`: deposits and withdrawals, oldest first, with the balance after each. The cursor is the stream version, so a deposit that lands between two pages doesn't shift the next one.
 - Account endpoints on a minimal API. Every error is an RFC 9457 problem with a stable `code` to branch on, for example a 409 with `account.insufficient_funds` when a withdrawal is more than the balance ([ADR-0008](docs/adr/0008-problem-details-for-every-error.md)).
 - An OpenAPI 3.1 document at `/openapi/v1.json` that lists every status an endpoint can answer, and a Scalar UI at `/scalar` in development.
@@ -38,7 +39,7 @@ Done:
 
 Coming next:
 - Transactional outbox (built on outbox-kit), then Azure Service Bus.
-- Rebuilding projections, .NET Aspire, OpenTelemetry, and a Blazor back office.
+- .NET Aspire, OpenTelemetry, and a Blazor back office.
 
 ## Architecture
 

@@ -16,3 +16,4 @@
 | [0012](0012-catch-up-projections-with-checkpoints.md) | Read models catch up from the global order with a checkpoint each | Accepted |
 | [0013](0013-ef-core-for-the-sql-server-read-model.md) | EF Core for the SQL Server read model, hand-written SQL for the event store | Accepted |
 | [0014](0014-postgresql-and-sql-server-behind-the-same-ports.md) | PostgreSQL and SQL Server behind the same ports | Accepted |
+| [0015](0015-rebuilding-a-projection-in-place.md) | Rebuilding a projection in place, from inside the API | Accepted |

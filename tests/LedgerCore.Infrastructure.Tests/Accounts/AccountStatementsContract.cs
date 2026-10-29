@@ -18,7 +18,7 @@ public abstract class AccountStatementsContract
 
     protected static CancellationToken Token => TestContext.Current.CancellationToken;
 
-    protected abstract Task<(IProjection Projection, IAccountStatements Statements)> CreateAsync();
+    protected abstract Task<(IRebuildableProjection Projection, IAccountStatements Statements)> CreateAsync();
 
     [Fact]
     public async Task Lines_come_oldest_first_with_the_balance_after_each()
@@ -83,6 +83,22 @@ public abstract class AccountStatementsContract
         var (_, statements) = await CreateAsync();
 
         Assert.Null(await statements.GetAsync(new GetStatement(_account), Token));
+    }
+
+    [Fact]
+    public async Task After_a_reset_the_same_events_build_the_same_statement()
+    {
+        var (projection, statements) = await CreateAsync();
+        IDomainEvent[] events = [Opened(), Deposited(100m, day: 1), Withdrawn(25.50m, day: 2)];
+        await Feed(projection, events);
+        var before = await statements.GetAsync(new GetStatement(_account), Token);
+
+        await projection.ResetAsync(Token);
+        Assert.Null(await statements.GetAsync(new GetStatement(_account), Token));
+
+        _version = 0;
+        await Feed(projection, events);
+        Assert.Equal(before!.Lines, (await statements.GetAsync(new GetStatement(_account), Token))!.Lines);
     }
 
     private async Task Feed(IProjection projection, params IDomainEvent[] events)

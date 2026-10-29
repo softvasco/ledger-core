@@ -89,6 +89,24 @@ public class SqlServerAccountReadModelTests(SqlServerFixture fixture) : IClassFi
     }
 
     [Fact]
+    public async Task A_rebuild_through_the_runner_ends_with_the_same_balance_lines_and_checkpoint()
+    {
+        var readModel = await NewReadModel();
+        var events = new InMemoryEventStore();
+        await events.AppendAsync(
+            StreamId.For("account", _account.Value), 0, [Opened(), Deposited(100.50m), Withdrawn(30m)], Token);
+        using var runner = new ProjectionRunner(events, new InMemoryCheckpointStore(), [readModel]);
+        await runner.CatchUpAsync(Token);
+        var lines = await StatementLines();
+
+        Assert.Equal(3, await runner.RebuildAsync(readModel.Name, cancellationToken: Token));
+
+        Assert.Equal(Money.Of(70.50m, Currency.Eur), (await readModel.GetAsync(_account, Token))!.Balance);
+        Assert.Equal(lines, await StatementLines());
+        Assert.Equal(3, await readModel.GetCheckpointAsync(Token));
+    }
+
+    [Fact]
     public async Task Creating_the_schema_twice_is_harmless()
     {
         var readModel = await NewReadModel();
