@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Json;
 using LedgerCore.Api.Accounts;
 using LedgerCore.Application.Projections;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.DependencyInjection;
@@ -12,8 +13,7 @@ public sealed class ProjectionAdminTests : IAsyncDisposable
 {
     private const string Summaries = "account-summaries";
 
-    private readonly WebApplicationFactory<Program> _factory =
-        new WebApplicationFactory<Program>().WithWebHostBuilder(b => b.UseSetting("Admin:Enabled", "true"));
+    private readonly AdminApi _factory = new();
 
     private readonly HttpClient _client;
 
@@ -111,6 +111,11 @@ public sealed class ProjectionAdminTests : IAsyncDisposable
         }
 
         throw new TimeoutException("The rebuild was still running after 5 seconds.");
+    }
+
+    private sealed class AdminApi : WebApplicationFactory<Program>
+    {
+        protected override void ConfigureWebHost(IWebHostBuilder builder) => builder.UseSetting("Admin:Enabled", "true");
     }
 
     private sealed record RebuildResult(string Projection, string State, int Applied, long Position, DateTimeOffset? FinishedAt);
