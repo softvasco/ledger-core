@@ -36,15 +36,17 @@ The databases run in Docker on the same machine, so network latency is close to 
 
 `SqlServerReadModelBenchmarks` fills the EF Core read model with one account and 1,000 deposits, one an hour, then times the three reads the API makes.
 
-| Benchmark | Mean | Allocated |
-|---|---:|---:|
-| Get the balance | 0.963 ms | 77.96 KB |
-| First statement page (50 lines) | 2.056 ms | 126.02 KB |
-| Statement page for a date range late in the history | 2.283 ms | 131.53 KB |
+| Benchmark | LINQ per call | Compiled | LINQ allocated | Compiled allocated |
+|---|---:|---:|---:|---:|
+| Get the balance | 0.963 ms | 0.780 ms | 77.96 KB | 71.27 KB |
+| First statement page (50 lines) | 2.056 ms | 1.421 ms | 126.02 KB | 104.41 KB |
+| Statement page for a date range late in the history | 2.283 ms | 1.631 ms | 131.53 KB | 104.27 KB |
 
-Run on 2026-10-30, same laptop and versions as above.
+Run on 2026-10-30, same laptop and versions as above, both columns in the same evening.
 
-A statement page costs about two balance lookups because it is two queries: the account's currency from `account_balances`, then the lines. The date range is only a little slower than the first page, since the primary key (account, version) still narrows the scan to one account and 1,000 rows is not many to filter.
+The three reads now use `EF.CompileAsyncQuery`. EF Core caches translated queries anyway, but it still has to build the expression tree and look it up in that cache on every call; a compiled query skips both. That took about 0.18 ms off the balance lookup and about 0.63 ms off a statement page, which runs two queries (the account's currency, then the lines). The first run was noisy (BenchmarkDotNet flagged two of the three as bimodal), so read the gains as roughly a fifth to a third, not to the microsecond.
+
+The optional date filters became `from == null || occurred_at >= from` inside the compiled query, so there is one plan whatever filters a caller sends. That costs nothing here: the primary key (account, version) narrows every statement read to one account before the dates are checked, and the date range is only a little slower than the first page. I didn't add an index on `occurred_at` for the same reason. It would start to matter for accounts with many thousands of lines and a narrow range, and these numbers don't show that yet.
 
 ## Running them
 
@@ -52,4 +54,4 @@ A statement page costs about two balance lookups because it is two queries: the 
 dotnet run -c Release --project benchmarks/LedgerCore.Benchmarks -- --filter '*'
 ```
 
-Needs Docker. Each benchmark starts its own database container, so a full run takes a few minutes. `--filter '*SqlServer*'` or `--filter '*Postgres*'` runs one engine, and `--filter '*ReadModel*'` only the read model.
+Needs Docker. Each benchmark starts its own database container, so a full run takes a few minutes. `--filter '*EventStore*'` runs only the event stores (`*SqlServerEventStore*` or `*PostgresEventStore*` for one engine), and `--filter '*ReadModel*'` only the read model.
