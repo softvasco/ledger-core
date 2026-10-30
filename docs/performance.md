@@ -32,10 +32,24 @@ Reading 1,000 events takes about 1.9 µs per event on PostgreSQL and 4.7 µs on 
 
 The databases run in Docker on the same machine, so network latency is close to zero. Against a database on another host, every round trip adds to the append time.
 
+## Read model on SQL Server
+
+`SqlServerReadModelBenchmarks` fills the EF Core read model with one account and 1,000 deposits, one an hour, then times the three reads the API makes.
+
+| Benchmark | Mean | Allocated |
+|---|---:|---:|
+| Get the balance | 0.963 ms | 77.96 KB |
+| First statement page (50 lines) | 2.056 ms | 126.02 KB |
+| Statement page for a date range late in the history | 2.283 ms | 131.53 KB |
+
+Run on 2026-10-30, same laptop and versions as above.
+
+A statement page costs about two balance lookups because it is two queries: the account's currency from `account_balances`, then the lines. The date range is only a little slower than the first page, since the primary key (account, version) still narrows the scan to one account and 1,000 rows is not many to filter.
+
 ## Running them
 
 ```bash
 dotnet run -c Release --project benchmarks/LedgerCore.Benchmarks -- --filter '*'
 ```
 
-Needs Docker. Each benchmark starts its own database container, so a full run takes a few minutes. `--filter '*SqlServer*'` or `--filter '*Postgres*'` runs one engine.
+Needs Docker. Each benchmark starts its own database container, so a full run takes a few minutes. `--filter '*SqlServer*'` or `--filter '*Postgres*'` runs one engine, and `--filter '*ReadModel*'` only the read model.
