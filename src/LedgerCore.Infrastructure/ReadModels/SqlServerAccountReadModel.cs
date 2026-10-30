@@ -15,6 +15,29 @@ public sealed class SqlServerAccountReadModel :
     private const string DepositKind = "deposit";
     private const string WithdrawalKind = "withdrawal";
 
+    private static readonly Func<ReadModelContext, Guid, CancellationToken, Task<AccountBalanceRow?>> BalanceQuery =
+        EF.CompileAsyncQuery((ReadModelContext db, Guid accountId, CancellationToken _) =>
+            db.Balances.AsNoTracking().SingleOrDefault(b => b.AccountId == accountId));
+
+    private static readonly Func<ReadModelContext, Guid, CancellationToken, Task<string?>> CurrencyQuery =
+        EF.CompileAsyncQuery((ReadModelContext db, Guid accountId, CancellationToken _) =>
+            db.Balances.AsNoTracking()
+                .Where(b => b.AccountId == accountId)
+                .Select(b => b.Currency)
+                .SingleOrDefault());
+
+    // keyset paging on the stream version: a deposit landing mid-read can't shift the next page
+    private static readonly Func<
+        ReadModelContext, Guid, long, DateTimeOffset?, DateTimeOffset?, int, IAsyncEnumerable<StatementLineRow>> LinesQuery =
+        EF.CompileAsyncQuery((
+            ReadModelContext db, Guid accountId, long afterVersion, DateTimeOffset? from, DateTimeOffset? to, int take) =>
+            db.StatementLines.AsNoTracking()
+                .Where(l => l.AccountId == accountId && l.Version > afterVersion)
+                .Where(l => from == null || l.OccurredAt >= from)
+                .Where(l => to == null || l.OccurredAt < to)
+                .OrderBy(l => l.Version)
+                .Take(take));
+
     private readonly DbContextOptions<ReadModelContext> _options;
 
     public SqlServerAccountReadModel(string connectionString)
@@ -83,9 +106,7 @@ public sealed class SqlServerAccountReadModel :
     public async Task<AccountSummary?> GetAsync(AccountId id, CancellationToken cancellationToken = default)
     {
         await using var db = new ReadModelContext(_options);
-        var row = await db.Balances.AsNoTracking()
-            .SingleOrDefaultAsync(b => b.AccountId == id.Value, cancellationToken)
-            .ConfigureAwait(false);
+        var row = await BalanceQuery(db, id.Value, cancellationToken).ConfigureAwait(false);
         return row is null ? null : ToSummary(row);
     }
 
@@ -94,33 +115,20 @@ public sealed class SqlServerAccountReadModel :
         ArgumentNullException.ThrowIfNull(query);
 
         await using var db = new ReadModelContext(_options);
-        var currencyCode = await db.Balances.AsNoTracking()
-            .Where(b => b.AccountId == query.AccountId.Value)
-            .Select(b => b.Currency)
-            .SingleOrDefaultAsync(cancellationToken)
-            .ConfigureAwait(false);
+        var currencyCode = await CurrencyQuery(db, query.AccountId.Value, cancellationToken).ConfigureAwait(false);
         if (currencyCode is null)
         {
             return null;
         }
 
-        // keyset paging on the stream version: a deposit landing mid-read can't shift the next page
-        var lines = db.StatementLines.AsNoTracking()
-            .Where(l => l.AccountId == query.AccountId.Value && l.Version > query.AfterVersion);
-        if (query.From is { } from)
+        var take = query.PageSize + 1;
+        var rows = new List<StatementLineRow>(take);
+        var lines = LinesQuery(db, query.AccountId.Value, query.AfterVersion, query.From, query.To, take);
+        await foreach (var row in lines.WithCancellation(cancellationToken).ConfigureAwait(false))
         {
-            lines = lines.Where(l => l.OccurredAt >= from);
+            rows.Add(row);
         }
 
-        if (query.To is { } to)
-        {
-            lines = lines.Where(l => l.OccurredAt < to);
-        }
-
-        var rows = await lines.OrderBy(l => l.Version)
-            .Take(query.PageSize + 1)
-            .ToListAsync(cancellationToken)
-            .ConfigureAwait(false);
         var currency = Currency.FromCode(currencyCode);
         return StatementPaging.Page([.. rows.Select(r => ToLine(r, currency))], query.PageSize);
     }
