@@ -1,6 +1,6 @@
 # Performance
 
-Numbers for the PostgreSQL and SQL Server event stores, from `benchmarks/LedgerCore.Benchmarks`. Both engines run the same three benchmarks from one base class. They are a baseline to compare later changes against, not a claim about production throughput.
+Numbers for the PostgreSQL and SQL Server event stores and for the SQL Server read model, from `benchmarks/LedgerCore.Benchmarks`. Both event stores run the same three benchmarks from one base class; the read model ones are [further down](#read-model-on-sql-server). They are a baseline to compare later changes against, not a claim about production throughput.
 
 ## Results
 
