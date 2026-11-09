@@ -28,7 +28,7 @@ public class PublishedSchemaTests
     {
         var name = type.GetCustomAttribute<IntegrationEventAttribute>()!.Type;
         var actual = Options.GetJsonSchemaAsNode(type).ToJsonString(Options) + "\n";
-        var path = Path.Combine(SchemaDirectory(), $"{name}.json");
+        var path = Path.Join(SchemaDirectory(), $"{name}.json");
         var expected = File.Exists(path) ? File.ReadAllText(path).ReplaceLineEndings("\n") : null;
 
         if (actual != expected)
@@ -55,5 +55,5 @@ public class PublishedSchemaTests
     }
 
     private static string SchemaDirectory([CallerFilePath] string testFile = "") =>
-        Path.Combine(Path.GetDirectoryName(testFile)!, "Schemas");
+        Path.Join(Path.GetDirectoryName(testFile)!, "Schemas");
 }
