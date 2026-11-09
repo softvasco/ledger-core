@@ -1,0 +1,38 @@
+{
+  "type": [
+    "object",
+    "null"
+  ],
+  "properties": {
+    "TransferId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "SourceAccountId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "DestinationAccountId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "Amount": {
+      "type": "number"
+    },
+    "Currency": {
+      "type": "string"
+    },
+    "OccurredAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "TransferId",
+    "SourceAccountId",
+    "DestinationAccountId",
+    "Amount",
+    "Currency",
+    "OccurredAt"
+  ]
+}
