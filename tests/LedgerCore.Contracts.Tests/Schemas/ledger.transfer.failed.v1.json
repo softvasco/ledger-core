@@ -1,0 +1,24 @@
+{
+  "type": [
+    "object",
+    "null"
+  ],
+  "properties": {
+    "TransferId": {
+      "type": "string",
+      "format": "uuid"
+    },
+    "Reason": {
+      "type": "string"
+    },
+    "OccurredAt": {
+      "type": "string",
+      "format": "date-time"
+    }
+  },
+  "required": [
+    "TransferId",
+    "Reason",
+    "OccurredAt"
+  ]
+}

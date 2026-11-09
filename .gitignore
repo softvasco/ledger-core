@@ -9,3 +9,4 @@ target/
 __pycache__/
 .env
 BenchmarkDotNet.Artifacts/
+*.received.json
