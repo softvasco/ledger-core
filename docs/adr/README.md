@@ -17,3 +17,4 @@
 | [0013](0013-ef-core-for-the-sql-server-read-model.md) | EF Core for the SQL Server read model, hand-written SQL for the event store | Accepted |
 | [0014](0014-postgresql-and-sql-server-behind-the-same-ports.md) | PostgreSQL and SQL Server behind the same ports | Accepted |
 | [0015](0015-rebuilding-a-projection-in-place.md) | Rebuilding a projection in place, from inside the API | Accepted |
+| [0016](0016-integration-events-in-their-own-project.md) | Integration events in their own project, versioned by namespace | Accepted |
