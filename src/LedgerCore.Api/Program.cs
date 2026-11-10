@@ -1,4 +1,5 @@
 using LedgerCore.Api.Accounts;
+using LedgerCore.Api.Messaging;
 using LedgerCore.Api.OpenApi;
 using LedgerCore.Api.Projections;
 using LedgerCore.Api.Problems;
@@ -23,6 +24,7 @@ builder.Services.AddLedgerOpenApi();
 builder.Services.AddSingleton(TimeProvider.System);
 
 builder.Services.AddLedgerStorage(builder.Configuration);
+builder.Services.AddLedgerMessaging(builder.Configuration);
 builder.Services.AddSingleton(new IdempotencyOptions());
 builder.Services.AddSingleton(new SnapshotPolicy(100));
 
