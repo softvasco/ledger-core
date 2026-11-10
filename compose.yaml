@@ -1,0 +1,32 @@
+# local only: the passwords here are for throwaway containers
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: Ledger_dev_1
+    ports:
+      - "14333:1433"
+
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_PASSWORD: ledger
+      POSTGRES_DB: ledger
+    ports:
+      - "15432:5432"
+
+  # the emulator keeps its own state in SQL Server, so it shares the container above
+  servicebus:
+    image: mcr.microsoft.com/azure-messaging/servicebus-emulator:latest
+    depends_on:
+      - sqlserver
+    environment:
+      ACCEPT_EULA: "Y"
+      SQL_SERVER: sqlserver
+      MSSQL_SA_PASSWORD: Ledger_dev_1
+    volumes:
+      - ./deploy/servicebus/config.json:/ServiceBus_Emulator/ConfigFiles/Config.json:ro
+    ports:
+      - "5672:5672"
+      - "5300:5300"
