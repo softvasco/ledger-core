@@ -4,6 +4,7 @@
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/LedgerCore.Api/LedgerCore.Api.csproj" />
+    <Project Path="src/LedgerCore.AppHost/LedgerCore.AppHost.csproj" />
     <Project Path="src/LedgerCore.Application/LedgerCore.Application.csproj" />
     <Project Path="src/LedgerCore.Contracts/LedgerCore.Contracts.csproj" />
     <Project Path="src/LedgerCore.Domain/LedgerCore.Domain.csproj" />
@@ -11,6 +12,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/LedgerCore.Api.Tests/LedgerCore.Api.Tests.csproj" />
+    <Project Path="tests/LedgerCore.AppHost.Tests/LedgerCore.AppHost.Tests.csproj" />
     <Project Path="tests/LedgerCore.Application.Tests/LedgerCore.Application.Tests.csproj" />
     <Project Path="tests/LedgerCore.Contracts.Tests/LedgerCore.Contracts.Tests.csproj" />
     <Project Path="tests/LedgerCore.Domain.Tests/LedgerCore.Domain.Tests.csproj" />
