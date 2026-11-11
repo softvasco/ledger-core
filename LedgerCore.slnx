@@ -12,6 +12,7 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/LedgerCore.Api.Tests/LedgerCore.Api.Tests.csproj" />
+    <Project Path="tests/LedgerCore.AppHost.Tests/LedgerCore.AppHost.Tests.csproj" />
     <Project Path="tests/LedgerCore.Application.Tests/LedgerCore.Application.Tests.csproj" />
     <Project Path="tests/LedgerCore.Contracts.Tests/LedgerCore.Contracts.Tests.csproj" />
     <Project Path="tests/LedgerCore.Domain.Tests/LedgerCore.Domain.Tests.csproj" />
