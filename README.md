@@ -114,9 +114,19 @@ dotnet run --project src/LedgerCore.Api
 
 Without a connection string the API keeps everything in memory. Open http://localhost:5174/scalar to open an account, post deposits and withdrawals and move money between accounts, or run the requests in [LedgerCore.Api.http](src/LedgerCore.Api/LedgerCore.Api.http) from VS Code (REST Client) or Visual Studio. They cover each endpoint, a retried deposit, and the main errors.
 
+### Everything with .NET Aspire
+
+```bash
+dotnet run --project src/LedgerCore.AppHost
+```
+
+The AppHost starts SQL Server, the Service Bus emulator with the `ledger.events` topic and its `audit` subscription, and the API once both are up, and opens the Aspire dashboard with their logs. The API gets the same `ConnectionStrings:Ledger` and `ConnectionStrings:ServiceBus` it reads without Aspire, so nothing in it knows about the AppHost. Add `--Storage:Provider PostgreSql` to run the event store on PostgreSQL instead.
+
+### With Docker Compose
+
 `compose.yaml` has SQL Server, PostgreSQL and the Azure Service Bus emulator, with local-only passwords. Start only what you need.
 
-### On SQL Server
+#### On SQL Server
 
 ```bash
 docker compose up -d sqlserver
@@ -129,7 +139,7 @@ dotnet run --project src/LedgerCore.Api
 
 The API creates its tables on start. Balances and statements come from SQL Server tables that survive a restart (`GET /accounts/{id}/statement`).
 
-### On PostgreSQL
+#### On PostgreSQL
 
 ```bash
 docker compose up -d postgres
@@ -141,7 +151,7 @@ dotnet run --project src/LedgerCore.Api
 
 On PostgreSQL the read model is still in memory and replays the events on start. What differs between the two engines, and why, is in [ADR-0014](docs/adr/0014-postgresql-and-sql-server-behind-the-same-ports.md).
 
-### Service Bus emulator
+#### Service Bus emulator
 
 ```bash
 docker compose up -d servicebus
@@ -149,7 +159,7 @@ docker compose up -d servicebus
 
 It starts SQL Server too, which it uses for its own state, and creates the topic `ledger.events` with one subscription, `audit`, from [deploy/servicebus/config.json](deploy/servicebus/config.json). Wait for "Emulator Service is Successfully Up" in `docker compose logs servicebus`. The emulator is for local development only and its image tag is `latest`, as Microsoft publishes it.
 
-Needs the .NET 10 SDK, and Docker for the databases and for the PostgreSQL and SQL Server tests (Testcontainers starts them). A one-command run with .NET Aspire comes later.
+Needs the .NET 10 SDK, and Docker for the databases, the AppHost and the PostgreSQL and SQL Server tests (Testcontainers starts them).
 
 ## License
 

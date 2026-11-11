@@ -1,0 +1,22 @@
+<Project Sdk="Aspire.AppHost.Sdk/13.6.5">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <AspireUseCliBundle>true</AspireUseCliBundle>
+    <UserSecretsId>ledger-core-apphost</UserSecretsId>
+    <!-- Aspire wants newer Microsoft.Extensions patches than the repo pins; this only runs locally -->
+    <CentralPackageTransitivePinningEnabled>false</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Aspire.Hosting.Azure.ServiceBus" />
+    <PackageReference Include="Aspire.Hosting.PostgreSQL" />
+    <PackageReference Include="Aspire.Hosting.SqlServer" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LedgerCore.Api\LedgerCore.Api.csproj" />
+  </ItemGroup>
+
+</Project>
