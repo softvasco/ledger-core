@@ -35,11 +35,12 @@ Done:
 - An OpenAPI 3.1 document at `/openapi/v1.json` that lists every status an endpoint can answer, and a Scalar UI at `/scalar` in development.
 - `Idempotency-Key` on every POST: a retry gets the stored response back, the same key with another body is a 422 ([ADR-0009](docs/adr/0009-idempotency-keys-for-post.md)). It is an endpoint filter, so callers that run the endpoint in-process get it too ([ADR-0010](docs/adr/0010-idempotency-as-an-endpoint-filter.md)).
 - Transfers between accounts run as a process manager over the two account streams: debit the source, credit the destination, and give the money back if the destination refuses ([ADR-0011](docs/adr/0011-transfers-as-a-process-manager.md)). `POST /transfers` answers 201 with the final status, or the refusing account's problem plus a `transferId` to read it back from `GET /transfers/{id}`. A retry with the same `Idempotency-Key` gets the first answer and moves the money once.
+- Telemetry from `LedgerCore.ServiceDefaults`: OpenTelemetry traces, metrics and logs for ASP.NET Core, HttpClient, the runtime and every command (`LedgerCore.Application` spans), sent over OTLP when `OTEL_EXPORTER_OTLP_ENDPOINT` is set. `/health` runs every check, `/alive` only the liveness one, and neither shows up in traces.
 - What counts as the API contract, which changes break it, and how a v2 would sit next to v1: [docs/api.md](docs/api.md).
 
 Coming next:
 - Transactional outbox (built on outbox-kit), then Azure Service Bus.
-- .NET Aspire, OpenTelemetry, and a Blazor back office.
+- Custom metrics (transfers per second, outbox and projection lag) and a Blazor back office.
 
 ## Architecture
 
@@ -120,7 +121,7 @@ Without a connection string the API keeps everything in memory. Open http://loca
 dotnet run --project src/LedgerCore.AppHost
 ```
 
-The AppHost starts SQL Server, the Service Bus emulator with the `ledger.events` topic and its `audit` subscription, and the API once both are up, and opens the Aspire dashboard with their logs. The API gets the same `ConnectionStrings:Ledger` and `ConnectionStrings:ServiceBus` it reads without Aspire, so nothing in it knows about the AppHost. Add `--Storage:Provider PostgreSql` to run the event store on PostgreSQL instead.
+The AppHost starts SQL Server, the Service Bus emulator with the `ledger.events` topic and its `audit` subscription, and the API once both are up, and opens the Aspire dashboard with their logs, traces and metrics. The API gets the same `ConnectionStrings:Ledger` and `ConnectionStrings:ServiceBus` it reads without Aspire, so nothing in it knows about the AppHost. Add `--Storage:Provider PostgreSql` to run the event store on PostgreSQL instead.
 
 ### With Docker Compose
 
