@@ -12,10 +12,11 @@ namespace LedgerCore.Api.Tests.Observability;
 public sealed class ServiceDefaultsTests : IAsyncDisposable
 {
     private readonly List<Activity> _spans = [];
+    private readonly WebApplicationFactory<Program> _root = new();
     private readonly WebApplicationFactory<Program> _factory;
 
     public ServiceDefaultsTests() =>
-        _factory = new WebApplicationFactory<Program>().WithWebHostBuilder(web =>
+        _factory = _root.WithWebHostBuilder(web =>
             web.ConfigureServices(services =>
                 services.ConfigureOpenTelemetryTracerProvider(tracing => tracing.AddInMemoryExporter(_spans))));
 
@@ -64,5 +65,6 @@ public sealed class ServiceDefaultsTests : IAsyncDisposable
     // the in-memory exporter sits behind a batch processor, so force it out before asserting
     private void Flush() => _factory.Services.GetRequiredService<TracerProvider>().ForceFlush();
 
-    public ValueTask DisposeAsync() => _factory.DisposeAsync();
+    // disposing the root also disposes the factory derived from it
+    public ValueTask DisposeAsync() => _root.DisposeAsync();
 }
