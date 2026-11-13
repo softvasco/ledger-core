@@ -7,17 +7,19 @@ using LedgerCore.Api.Storage;
 using LedgerCore.Api.Transfers;
 using LedgerCore.Application.Accounts;
 using LedgerCore.Application.Commands;
+using LedgerCore.Application.Diagnostics;
 using LedgerCore.Application.Idempotency;
 using LedgerCore.Application.Projections;
 using LedgerCore.Application.Queries;
 using LedgerCore.Application.Snapshots;
 using LedgerCore.Application.Transfers;
 using LedgerCore.Infrastructure.Projections;
+using LedgerCore.ServiceDefaults;
 using Scalar.AspNetCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Services.AddHealthChecks();
+builder.AddServiceDefaults(LedgerTelemetry.SourceName);
 builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ProblemExceptionHandler>();
 builder.Services.AddLedgerOpenApi();
@@ -50,7 +52,7 @@ if (app.Environment.IsDevelopment())
     app.MapScalarApiReference();
 }
 
-app.MapHealthChecks("/health");
+app.MapDefaultEndpoints();
 app.MapAccounts();
 app.MapTransfers();
 app.MapProjectionAdmin(app.Configuration);

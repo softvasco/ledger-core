@@ -9,6 +9,7 @@
     <Project Path="src/LedgerCore.Contracts/LedgerCore.Contracts.csproj" />
     <Project Path="src/LedgerCore.Domain/LedgerCore.Domain.csproj" />
     <Project Path="src/LedgerCore.Infrastructure/LedgerCore.Infrastructure.csproj" />
+    <Project Path="src/LedgerCore.ServiceDefaults/LedgerCore.ServiceDefaults.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/LedgerCore.Api.Tests/LedgerCore.Api.Tests.csproj" />

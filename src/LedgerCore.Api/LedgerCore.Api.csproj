@@ -7,5 +7,6 @@
   <ItemGroup>
     <ProjectReference Include="..\LedgerCore.Application\LedgerCore.Application.csproj" />
     <ProjectReference Include="..\LedgerCore.Infrastructure\LedgerCore.Infrastructure.csproj" />
+    <ProjectReference Include="..\LedgerCore.ServiceDefaults\LedgerCore.ServiceDefaults.csproj" />
   </ItemGroup>
 </Project>
