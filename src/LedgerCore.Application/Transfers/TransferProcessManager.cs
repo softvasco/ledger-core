@@ -1,11 +1,16 @@
 using LedgerCore.Application.Accounts;
+using LedgerCore.Application.Diagnostics;
 using LedgerCore.Domain.Accounts;
 using LedgerCore.Domain.Transfers;
 
 namespace LedgerCore.Application.Transfers;
 
 /// <summary>Drives a transfer from where it stopped: debit the source, credit the destination, undo on refusal.</summary>
-public sealed class TransferProcessManager(AccountRepository accounts, TransferRepository transfers, TimeProvider clock)
+public sealed class TransferProcessManager(
+    AccountRepository accounts,
+    TransferRepository transfers,
+    LedgerMetrics metrics,
+    TimeProvider clock)
 {
     // each step is saved before the next one starts, so a restart picks up at the last recorded step
     public async Task RunAsync(Transfer transfer, CancellationToken cancellationToken = default)
@@ -25,6 +30,10 @@ public sealed class TransferProcessManager(AccountRepository accounts, TransferR
             }
 
             await transfers.SaveAsync(transfer, cancellationToken);
+            if (transfer.Status == TransferStatus.Failed)
+            {
+                metrics.TransferEnded(TransferStatus.Failed);
+            }
         }
 
         if (transfer.Status == TransferStatus.SourceDebited)
@@ -40,6 +49,7 @@ public sealed class TransferProcessManager(AccountRepository accounts, TransferR
         {
             transfer.Complete(clock);
             await transfers.SaveAsync(transfer, cancellationToken);
+            metrics.TransferEnded(TransferStatus.Completed);
             return;
         }
 
@@ -53,5 +63,6 @@ public sealed class TransferProcessManager(AccountRepository accounts, TransferR
 
         transfer.Compensate(credit.Error.Code, clock);
         await transfers.SaveAsync(transfer, cancellationToken);
+        metrics.TransferEnded(TransferStatus.Compensated);
     }
 }

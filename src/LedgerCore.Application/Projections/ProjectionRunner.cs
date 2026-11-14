@@ -1,3 +1,4 @@
+using LedgerCore.Application.Diagnostics;
 using LedgerCore.Application.EventStore;
 
 namespace LedgerCore.Application.Projections;
@@ -9,13 +10,15 @@ public sealed class ProjectionRunner : IDisposable
     private readonly ICheckpointStore _checkpoints;
     private readonly IReadOnlyList<IProjection> _projections;
     private readonly int _checkpointEvery;
+    private readonly LedgerMetrics? _metrics;
     private readonly SemaphoreSlim _running = new(1, 1);
 
     public ProjectionRunner(
         IEventStore events,
         ICheckpointStore checkpoints,
         IEnumerable<IProjection> projections,
-        int checkpointEvery = 100)
+        int checkpointEvery = 100,
+        LedgerMetrics? metrics = null)
     {
         ArgumentNullException.ThrowIfNull(events);
         ArgumentNullException.ThrowIfNull(checkpoints);
@@ -26,6 +29,7 @@ public sealed class ProjectionRunner : IDisposable
         _checkpoints = checkpoints;
         _projections = [.. projections];
         _checkpointEvery = checkpointEvery;
+        _metrics = metrics;
 
         var duplicate = _projections.GroupBy(p => p.Name).FirstOrDefault(g => g.Count() > 1);
         if (duplicate is not null)
@@ -44,7 +48,7 @@ public sealed class ProjectionRunner : IDisposable
             var applied = 0;
             foreach (var projection in _projections)
             {
-                applied += await CatchUpAsync(projection, null, cancellationToken).ConfigureAwait(false);
+                applied += await CatchUpAsync(projection, null, measureLag: true, cancellationToken).ConfigureAwait(false);
             }
 
             return applied;
@@ -82,7 +86,8 @@ public sealed class ProjectionRunner : IDisposable
                 await _checkpoints.SaveAsync(target.Name, 0, cancellationToken).ConfigureAwait(false);
             }
 
-            return await CatchUpAsync(target, progress, cancellationToken).ConfigureAwait(false);
+            // a rebuild replays old events, so their age says nothing about lag
+            return await CatchUpAsync(target, progress, measureLag: false, cancellationToken).ConfigureAwait(false);
         }
         finally
         {
@@ -95,11 +100,12 @@ public sealed class ProjectionRunner : IDisposable
     private async Task<int> CatchUpAsync(
         IProjection projection,
         IProgress<RebuildProgress>? progress,
+        bool measureLag,
         CancellationToken cancellationToken)
     {
         if (projection is ICheckpointedProjection checkpointed)
         {
-            return await CatchUpAsync(checkpointed, progress, cancellationToken).ConfigureAwait(false);
+            return await CatchUpAsync(checkpointed, progress, measureLag, cancellationToken).ConfigureAwait(false);
         }
 
         var saved = await _checkpoints.GetAsync(projection.Name, cancellationToken).ConfigureAwait(false);
@@ -110,6 +116,11 @@ public sealed class ProjectionRunner : IDisposable
             await foreach (var recorded in _events.ReadAllAsync(saved, cancellationToken).ConfigureAwait(false))
             {
                 await projection.ApplyAsync(recorded, cancellationToken).ConfigureAwait(false);
+                if (measureLag)
+                {
+                    _metrics?.ProjectionApplied(projection.Name, recorded.Event);
+                }
+
                 last = recorded.Position;
                 applied++;
 
@@ -138,6 +149,7 @@ public sealed class ProjectionRunner : IDisposable
     private async Task<int> CatchUpAsync(
         ICheckpointedProjection projection,
         IProgress<RebuildProgress>? progress,
+        bool measureLag,
         CancellationToken cancellationToken)
     {
         var from = await projection.GetCheckpointAsync(cancellationToken).ConfigureAwait(false);
@@ -146,6 +158,11 @@ public sealed class ProjectionRunner : IDisposable
         await foreach (var recorded in _events.ReadAllAsync(from, cancellationToken).ConfigureAwait(false))
         {
             await projection.ApplyAsync(recorded, cancellationToken).ConfigureAwait(false);
+            if (measureLag)
+            {
+                _metrics?.ProjectionApplied(projection.Name, recorded.Event);
+            }
+
             last = recorded.Position;
             applied++;
 

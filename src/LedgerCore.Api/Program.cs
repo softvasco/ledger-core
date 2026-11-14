@@ -24,6 +24,7 @@ builder.Services.AddProblemDetails();
 builder.Services.AddExceptionHandler<ProblemExceptionHandler>();
 builder.Services.AddLedgerOpenApi();
 builder.Services.AddSingleton(TimeProvider.System);
+builder.Services.AddSingleton<LedgerMetrics>();
 
 builder.Services.AddLedgerStorage(builder.Configuration);
 builder.Services.AddLedgerMessaging(builder.Configuration);

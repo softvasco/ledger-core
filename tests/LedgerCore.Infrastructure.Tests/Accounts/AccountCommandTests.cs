@@ -1,5 +1,6 @@
 using LedgerCore.Application.Accounts;
 using LedgerCore.Application.Commands;
+using LedgerCore.Application.Diagnostics;
 using LedgerCore.Application.EventStore;
 using LedgerCore.Application.Snapshots;
 using LedgerCore.Application.Transfers;
@@ -36,6 +37,8 @@ public sealed class AccountCommandTests : IDisposable
             .AddScoped<AccountRepository>()
             .AddScoped<TransferRepository>()
             .AddScoped<TransferProcessManager>()
+            .AddMetrics()
+            .AddSingleton<LedgerMetrics>()
             .AddCommands(typeof(OpenAccount).Assembly)
             .BuildServiceProvider(new ServiceProviderOptions { ValidateScopes = true, ValidateOnBuild = true });
         _scope = _services.CreateScope();
