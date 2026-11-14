@@ -36,11 +36,12 @@ Done:
 - `Idempotency-Key` on every POST: a retry gets the stored response back, the same key with another body is a 422 ([ADR-0009](docs/adr/0009-idempotency-keys-for-post.md)). It is an endpoint filter, so callers that run the endpoint in-process get it too ([ADR-0010](docs/adr/0010-idempotency-as-an-endpoint-filter.md)).
 - Transfers between accounts run as a process manager over the two account streams: debit the source, credit the destination, and give the money back if the destination refuses ([ADR-0011](docs/adr/0011-transfers-as-a-process-manager.md)). `POST /transfers` answers 201 with the final status, or the refusing account's problem plus a `transferId` to read it back from `GET /transfers/{id}`. A retry with the same `Idempotency-Key` gets the first answer and moves the money once.
 - Telemetry from `LedgerCore.ServiceDefaults`: OpenTelemetry traces, metrics and logs for ASP.NET Core, HttpClient, the runtime and every command (`LedgerCore.Application` spans), sent over OTLP when `OTEL_EXPORTER_OTLP_ENDPOINT` is set. `/health` runs every check, `/alive` only the liveness one, and neither shows up in traces.
+- Ledger metrics on the `LedgerCore.Application` meter: `ledger.transfers` counts transfers that reached a final status, tagged `completed`, `failed` or `compensated`, so its rate is transfers per second; `ledger.projection.lag` is the time in seconds from an event occurring to a read model applying it, tagged with the projection. A rebuild records no lag, because the events it replays are old by design.
 - What counts as the API contract, which changes break it, and how a v2 would sit next to v1: [docs/api.md](docs/api.md).
 
 Coming next:
 - Transactional outbox (built on outbox-kit), then Azure Service Bus.
-- Custom metrics (transfers per second, outbox and projection lag) and a Blazor back office.
+- Outbox lag next to the other metrics once events go out, and a Blazor back office.
 
 ## Architecture
 
