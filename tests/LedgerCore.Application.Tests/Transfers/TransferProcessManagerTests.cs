@@ -1,5 +1,7 @@
+using System.Diagnostics.Metrics;
 using System.Runtime.CompilerServices;
 using LedgerCore.Application.Accounts;
+using LedgerCore.Application.Diagnostics;
 using LedgerCore.Application.EventStore;
 using LedgerCore.Application.Snapshots;
 using LedgerCore.Application.Transfers;
@@ -7,12 +9,14 @@ using LedgerCore.Domain.Abstractions;
 using LedgerCore.Domain.Accounts;
 using LedgerCore.Domain.Monetary;
 using LedgerCore.Domain.Transfers;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Diagnostics.Metrics.Testing;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Time.Testing;
 
 namespace LedgerCore.Application.Tests.Transfers;
 
-public class TransferProcessManagerTests
+public sealed class TransferProcessManagerTests : IDisposable
 {
     private static readonly Iban SomeIban = Iban.Parse("PT50 0002 0123 1234 5678 9015 4");
 
@@ -20,18 +24,23 @@ public class TransferProcessManagerTests
     private readonly AccountRepository _accounts;
     private readonly TransferRepository _transfers;
     private readonly StartTransferHandler _handler;
+    private readonly ServiceProvider _services = new ServiceCollection().AddMetrics().BuildServiceProvider();
+    private readonly LedgerMetrics _metrics;
 
     public TransferProcessManagerTests()
     {
         var events = new ListEventStore();
         _accounts = new AccountRepository(events, new NoSnapshots(), SnapshotPolicy.Default, NullLogger<AccountRepository>.Instance);
         _transfers = new TransferRepository(events);
+        _metrics = new LedgerMetrics(Meters, _clock);
         _handler = new StartTransferHandler(_transfers, Manager, _clock);
     }
 
     private static CancellationToken Token => TestContext.Current.CancellationToken;
 
-    private TransferProcessManager Manager => new(_accounts, _transfers, _clock);
+    private IMeterFactory Meters => _services.GetRequiredService<IMeterFactory>();
+
+    private TransferProcessManager Manager => new(_accounts, _transfers, _metrics, _clock);
 
     [Fact]
     public async Task A_transfer_debits_the_source_and_credits_the_destination()
@@ -110,6 +119,43 @@ public class TransferProcessManagerTests
     }
 
     [Fact]
+    public async Task Each_finished_transfer_is_counted_once_by_how_it_ended()
+    {
+        using var counted = new MetricCollector<long>(Meters, LedgerTelemetry.MeterName, "ledger.transfers");
+        var rich = await OpenWith(100m);
+        var poor = await OpenWith(10m);
+        var closed = await OpenWith(0m);
+        await Change(closed, a => a.Close(_clock));
+
+        await _handler.HandleAsync(Start(rich, poor, 40m), Token);
+        await _handler.HandleAsync(Start(poor, rich, 500m), Token);
+        await _handler.HandleAsync(Start(rich, closed, 5m), Token);
+
+        Assert.Equal(
+            ["completed", "failed", "compensated"],
+            counted.GetMeasurementSnapshot().Select(m => m.Tags[LedgerMetrics.TransferOutcomeTag]));
+        Assert.All(counted.GetMeasurementSnapshot(), m => Assert.Equal(1, m.Value));
+    }
+
+    [Fact]
+    public async Task A_transfer_left_open_for_a_person_is_not_counted()
+    {
+        using var counted = new MetricCollector<long>(Meters, LedgerTelemetry.MeterName, "ledger.transfers");
+        var source = await OpenWith(100m);
+        var destination = await OpenWith(0m);
+        await Change(destination, a => a.Close(_clock));
+        var transfer = Transfer.Request(TransferId.New(_clock), source, destination, Eur(100m), _clock);
+        await Change(source, a => a.Withdraw(Eur(100m), _clock));
+        await Change(source, a => a.Close(_clock));
+        transfer.SourceDebited(_clock);
+        await _transfers.SaveAsync(transfer, Token);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => Manager.RunAsync(transfer, Token));
+
+        Assert.Empty(counted.GetMeasurementSnapshot());
+    }
+
+    [Fact]
     public async Task Reading_a_refused_transfer_shows_its_status_and_reason()
     {
         var source = await OpenWith(10m);
@@ -129,6 +175,8 @@ public class TransferProcessManagerTests
     {
         Assert.Null(await new GetTransferHandler(_transfers).HandleAsync(new GetTransfer(TransferId.New(_clock)), Token));
     }
+
+    public void Dispose() => _services.Dispose();
 
     private static Money Eur(decimal amount) => Money.Of(amount, Currency.Eur);
 

@@ -1,16 +1,23 @@
+using System.Diagnostics.Metrics;
+using LedgerCore.Application.Diagnostics;
 using LedgerCore.Application.EventStore;
 using LedgerCore.Application.Projections;
 using LedgerCore.Infrastructure.EventStore;
 using LedgerCore.Infrastructure.Projections;
 using LedgerCore.Infrastructure.Tests.EventStore;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Diagnostics.Metrics.Testing;
+using Microsoft.Extensions.Time.Testing;
 
 namespace LedgerCore.Infrastructure.Tests.Projections;
 
-public class ProjectionRunnerTests
+public sealed class ProjectionRunnerTests : IDisposable
 {
     private readonly InMemoryEventStore _events = new();
     private readonly CountingCheckpointStore _checkpoints = new();
     private readonly Dictionary<string, Guid> _streams = [];
+    private readonly FakeTimeProvider _clock = new(DateTimeOffset.UnixEpoch);
+    private readonly ServiceProvider _services = new ServiceCollection().AddMetrics().BuildServiceProvider();
 
     private static CancellationToken Token => TestContext.Current.CancellationToken;
 
@@ -195,10 +202,41 @@ public class ProjectionRunnerTests
     public void Two_projections_cannot_share_a_checkpoint_name() =>
         Assert.Throws<ArgumentException>(() => Runner(new Numbers("same"), new Numbers("same")));
 
+    [Fact]
+    public async Task Catching_up_records_how_old_each_event_was_when_it_was_applied()
+    {
+        await Append("a", 1, 2);
+        _clock.Advance(TimeSpan.FromSeconds(5));
+        using var lag = new MetricCollector<double>(Meters, LedgerTelemetry.MeterName, "ledger.projection.lag");
+        using var runner = Runner(new Numbers("numbers"));
+
+        await runner.CatchUpAsync(Token);
+
+        Assert.Equal([5d, 5d], lag.GetMeasurementSnapshot().Select(m => m.Value));
+        Assert.All(lag.GetMeasurementSnapshot(), m => Assert.Equal("numbers", m.Tags[LedgerMetrics.ProjectionTag]));
+    }
+
+    [Fact]
+    public async Task A_rebuild_records_no_lag()
+    {
+        await Append("a", 1, 2);
+        _clock.Advance(TimeSpan.FromDays(30));
+        using var lag = new MetricCollector<double>(Meters, LedgerTelemetry.MeterName, "ledger.projection.lag");
+        using var runner = Runner(new Numbers("numbers"));
+
+        await runner.RebuildAsync("numbers", cancellationToken: Token);
+
+        Assert.Empty(lag.GetMeasurementSnapshot());
+    }
+
+    public void Dispose() => _services.Dispose();
+
+    private IMeterFactory Meters => _services.GetRequiredService<IMeterFactory>();
+
     private ProjectionRunner Runner(params IProjection[] projections) => Runner(100, projections);
 
     private ProjectionRunner Runner(int checkpointEvery, params IProjection[] projections) =>
-        new(_events, _checkpoints, projections, checkpointEvery);
+        new(_events, _checkpoints, projections, checkpointEvery, new LedgerMetrics(Meters, _clock));
 
     private async Task Append(string stream, params int[] numbers)
     {

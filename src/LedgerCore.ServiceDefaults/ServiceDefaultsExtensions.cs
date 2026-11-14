@@ -20,8 +20,8 @@ public static class ServiceDefaultsExtensions
 
     /// <summary>Adds OpenTelemetry for logs, metrics and traces, plus a liveness check.</summary>
     /// <param name="builder">The host builder.</param>
-    /// <param name="traceSources">Extra activity sources to collect, such as the application layer's.</param>
-    public static IHostApplicationBuilder AddServiceDefaults(this IHostApplicationBuilder builder, params string[] traceSources)
+    /// <param name="sources">Activity sources and meters to collect, such as the application layer's.</param>
+    public static IHostApplicationBuilder AddServiceDefaults(this IHostApplicationBuilder builder, params string[] sources)
     {
         ArgumentNullException.ThrowIfNull(builder);
 
@@ -33,11 +33,12 @@ public static class ServiceDefaultsExtensions
 
         builder.Services.AddOpenTelemetry()
             .WithMetrics(metrics => metrics
+                .AddMeter(sources)
                 .AddAspNetCoreInstrumentation()
                 .AddHttpClientInstrumentation()
                 .AddRuntimeInstrumentation())
             .WithTracing(tracing => tracing
-                .AddSource(traceSources)
+                .AddSource(sources)
                 .AddAspNetCoreInstrumentation(aspNetCore => aspNetCore.Filter = context => !IsHealthProbe(context.Request.Path))
                 .AddHttpClientInstrumentation());
 
