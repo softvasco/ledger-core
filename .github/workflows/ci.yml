@@ -39,6 +39,19 @@ jobs:
           path: coverage/report
           if-no-files-found: ignore
 
+  # main stays on .NET 10 LTS; this catches what breaks on the next release before we move
+  dotnet-11:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-dotnet@v6
+        with:
+          dotnet-version: 11.0.x
+      - run: sed -i 's/"version": "10.0.100"/"version": "11.0.100"/' global.json
+      - run: dotnet restore -p:DotNetVersion=11
+      - run: dotnet build --no-restore -c Release -warnaserror -p:DotNetVersion=11
+      - run: dotnet test --no-build -c Release -p:DotNetVersion=11
+
   gitleaks:
     runs-on: ubuntu-latest
     steps:
