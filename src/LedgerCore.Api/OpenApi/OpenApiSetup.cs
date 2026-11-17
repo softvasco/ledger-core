@@ -9,6 +9,9 @@ internal static class OpenApiSetup
     public static IServiceCollection AddLedgerOpenApi(this IServiceCollection services) =>
         services.AddOpenApi(options =>
         {
+            // .NET 11 defaults to 3.2, which client generators don't read yet
+            options.OpenApiVersion = OpenApiSpecVersion.OpenApi3_1;
+
             options.AddDocumentTransformer((document, _, _) =>
             {
                 document.Info.Title = "ledger-core API";

@@ -23,10 +23,30 @@ public class MoneyTests
         Assert.Throws<CurrencyMismatchException>(() => Eur(1m) < usd);
     }
 
+    // decimal literals, not InlineData doubles: from .NET 11 (decimal)0.05d keeps every binary digit
+    public static TheoryData<decimal, string> TooFine => new()
+    {
+        { 0.001m, "EUR" },
+        { 1.5m, "JPY" },
+        { 0.0001m, "BHD" },
+    };
+
+    public static TheoryData<decimal, decimal, decimal> HalfToEven => new()
+    {
+        { 10.00m, 0.125m, 1.25m },
+        { 0.05m, 0.5m, 0.02m },
+        { 0.15m, 0.5m, 0.08m },
+    };
+
+    public static TheoryData<decimal, string, string> Formatted => new()
+    {
+        { 1234.5m, "EUR", "EUR 1234.50" },
+        { 1500m, "JPY", "JPY 1500" },
+        { -0.125m, "BHD", "BHD -0.125" },
+    };
+
     [Theory]
-    [InlineData(0.001, "EUR")]
-    [InlineData(1.5, "JPY")]
-    [InlineData(0.0001, "BHD")]
+    [MemberData(nameof(TooFine))]
     public void Rejects_amounts_finer_than_the_currency_allows(decimal amount, string code)
     {
         Assert.Throws<ArgumentException>(() => Money.Of(amount, Currency.FromCode(code)));
@@ -39,9 +59,7 @@ public class MoneyTests
     }
 
     [Theory]
-    [InlineData(10.00, 0.125, 1.25)]
-    [InlineData(0.05, 0.5, 0.02)]
-    [InlineData(0.15, 0.5, 0.08)]
+    [MemberData(nameof(HalfToEven))]
     public void Multiplying_rounds_half_to_even_by_default(decimal amount, decimal factor, decimal expected)
     {
         Assert.Equal(Eur(expected), Eur(amount).Multiply(factor));
@@ -69,9 +87,7 @@ public class MoneyTests
     }
 
     [Theory]
-    [InlineData(1234.5, "EUR", "EUR 1234.50")]
-    [InlineData(1500, "JPY", "JPY 1500")]
-    [InlineData(-0.125, "BHD", "BHD -0.125")]
+    [MemberData(nameof(Formatted))]
     public void Formats_with_the_currency_code_and_its_decimals(decimal amount, string code, string expected)
     {
         Assert.Equal(expected, Money.Of(amount, Currency.FromCode(code)).ToString());
