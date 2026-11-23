@@ -122,7 +122,7 @@ Without a connection string the API keeps everything in memory. Open http://loca
 dotnet run --project src/LedgerCore.AppHost
 ```
 
-The AppHost starts SQL Server, the Service Bus emulator with the `ledger.events` topic and its `audit` subscription, and the API once both are up, and opens the Aspire dashboard with their logs, traces and metrics. The API gets the same `ConnectionStrings:Ledger` and `ConnectionStrings:ServiceBus` it reads without Aspire, so nothing in it knows about the AppHost. Add `--Storage:Provider PostgreSql` to run the event store on PostgreSQL instead.
+The AppHost starts SQL Server, the Service Bus emulator with the `ledger.events` topic and its `audit` subscription, and the API once both are up, and opens the Aspire dashboard with their logs, traces and metrics. The API gets the same `ConnectionStrings:Ledger` and `ConnectionStrings:ServiceBus` it reads without Aspire, so nothing in it knows about the AppHost. Add `--Storage:Provider PostgreSql` to run the event store on PostgreSQL instead. It also starts the Blazor back office (`src/LedgerCore.Admin`), which only talks to the API.
 
 ### With Docker Compose
 

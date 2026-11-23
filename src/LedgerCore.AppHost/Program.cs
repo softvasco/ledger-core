@@ -1,5 +1,6 @@
 using LedgerCore.AppHost;
 
 var builder = DistributedApplication.CreateBuilder(args);
-builder.AddLedger();
+var api = builder.AddLedger();
+builder.AddBackOffice(api);
 builder.Build().Run();

@@ -3,7 +3,7 @@ using Aspire.Hosting.ApplicationModel;
 
 namespace LedgerCore.AppHost;
 
-/// <summary>The API, its event store and the Service Bus emulator as Aspire resources.</summary>
+/// <summary>The API, its event store, the Service Bus emulator and the back office as Aspire resources.</summary>
 public static class LedgerResources
 {
     public const string ProviderSetting = "Storage:Provider";
@@ -33,6 +33,17 @@ public static class LedgerResources
             .WaitFor(database)
             .WithReference(bus, "ServiceBus")
             .WaitFor(bus)
+            .WithExternalHttpEndpoints();
+    }
+
+    public static IResourceBuilder<ProjectResource> AddBackOffice(
+        this IDistributedApplicationBuilder builder, IResourceBuilder<ProjectResource> api)
+    {
+        ArgumentNullException.ThrowIfNull(builder);
+
+        return builder.AddProject<Projects.LedgerCore_Admin>("admin")
+            .WithReference(api)
+            .WaitFor(api)
             .WithExternalHttpEndpoints();
     }
 }

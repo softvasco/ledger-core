@@ -1,0 +1,21 @@
+@inherits LayoutComponentBase
+
+<div class="shell">
+    <aside class="sidebar">
+        <a class="brand" href="">
+            <span class="kicker">ledger-core</span>
+            <span class="name">Back office</span>
+        </a>
+        <NavMenu />
+    </aside>
+
+    <main class="content">
+        @Body
+    </main>
+</div>
+
+<div id="blazor-error-ui" data-nosnippet>
+    Something went wrong on the server.
+    <a href="." class="reload">Reload</a>
+    <span class="dismiss">x</span>
+</div>

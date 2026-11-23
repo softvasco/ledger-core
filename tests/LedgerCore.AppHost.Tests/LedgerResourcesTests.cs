@@ -73,13 +73,26 @@ public class LedgerResourcesTests
         Assert.Equal("audit", Assert.Single(builder.Resources.OfType<AzureServiceBusSubscriptionResource>()).SubscriptionName);
     }
 
+    [Fact]
+    public async Task The_back_office_reaches_the_ledger_only_through_the_api()
+    {
+        await using var builder = await DistributedApplicationTestingBuilder.CreateAsync<Projects.LedgerCore_AppHost>(Token);
+
+        var admin = builder.Resources.OfType<ProjectResource>().Single(r => r.Name == "admin");
+
+        Assert.Equal(["api"], admin.Annotations.OfType<WaitAnnotation>().Select(w => w.Resource.Name));
+        Assert.Null(await Environment(builder, "ConnectionStrings__Ledger", "admin"));
+    }
+
     private static ProjectResource Api(IDistributedApplicationTestingBuilder builder) =>
         builder.Resources.OfType<ProjectResource>().Single(r => r.Name == "api");
 
     // publish mode turns references into expressions instead of resolving live endpoints
-    private static async Task<string?> Environment(IDistributedApplicationTestingBuilder builder, string variable)
+    private static async Task<string?> Environment(
+        IDistributedApplicationTestingBuilder builder, string variable, string resource = "api")
     {
-        var configuration = await ExecutionConfigurationBuilder.Create(Api(builder))
+        var project = builder.Resources.OfType<ProjectResource>().Single(r => r.Name == resource);
+        var configuration = await ExecutionConfigurationBuilder.Create(project)
             .WithEnvironmentVariablesConfig()
             .BuildAsync(new DistributedApplicationExecutionContext(DistributedApplicationOperation.Publish), NullLogger.Instance, Token);
         return configuration.EnvironmentVariables.FirstOrDefault(v => v.Key == variable).Value;
