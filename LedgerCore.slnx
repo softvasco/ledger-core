@@ -3,6 +3,7 @@
     <Project Path="benchmarks/LedgerCore.Benchmarks/LedgerCore.Benchmarks.csproj" />
   </Folder>
   <Folder Name="/src/">
+    <Project Path="src/LedgerCore.Admin/LedgerCore.Admin.csproj" />
     <Project Path="src/LedgerCore.Api/LedgerCore.Api.csproj" />
     <Project Path="src/LedgerCore.AppHost/LedgerCore.AppHost.csproj" />
     <Project Path="src/LedgerCore.Application/LedgerCore.Application.csproj" />

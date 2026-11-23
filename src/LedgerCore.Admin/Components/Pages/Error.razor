@@ -1,0 +1,22 @@
+@page "/error"
+@using System.Diagnostics
+
+<PageTitle>Error - ledger-core</PageTitle>
+
+<h1>Something went wrong</h1>
+
+@if (RequestId is not null)
+{
+    <p>Request id: <code>@RequestId</code></p>
+}
+
+@code {
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    private string? RequestId { get; set; }
+
+    // the trace id lets the error be found in the Aspire dashboard
+    protected override void OnInitialized() =>
+        RequestId = Activity.Current?.Id ?? HttpContext?.TraceIdentifier;
+}

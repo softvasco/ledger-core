@@ -16,6 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\LedgerCore.Admin\LedgerCore.Admin.csproj" />
     <ProjectReference Include="..\LedgerCore.Api\LedgerCore.Api.csproj" />
   </ItemGroup>
 

@@ -1,0 +1,118 @@
+:root {
+    --graphite: #141414;
+    --graphite-light: #2a2a2a;
+    --coral: #ff5a5f;
+    --warm-grey: #bdbab2;
+    --ink: #1d1d1d;
+    --mono: "IBM Plex Mono", ui-monospace, Consolas, monospace;
+    --serif: "Source Serif 4", Georgia, serif;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+body {
+    margin: 0;
+    font-family: system-ui, "Segoe UI", sans-serif;
+    color: var(--ink);
+    background: #fff;
+}
+
+.shell {
+    display: flex;
+    min-height: 100vh;
+}
+
+.sidebar {
+    width: 15rem;
+    flex-shrink: 0;
+    padding: 1.5rem 1rem;
+    background: linear-gradient(180deg, var(--graphite), var(--graphite-light));
+    color: #fff;
+}
+
+.brand {
+    display: block;
+    padding-bottom: 1rem;
+    margin-bottom: 1rem;
+    border-bottom: 2px solid var(--coral);
+    color: inherit;
+    text-decoration: none;
+}
+
+.brand .kicker {
+    display: block;
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    color: var(--coral);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.brand .name {
+    font-family: var(--serif);
+    font-weight: 700;
+    font-size: 1.4rem;
+}
+
+.nav a {
+    display: block;
+    padding: 0.4rem 0.6rem;
+    border-radius: 4px;
+    color: var(--warm-grey);
+    text-decoration: none;
+}
+
+.nav a:hover,
+.nav a.active {
+    color: #fff;
+    background: rgba(255, 255, 255, 0.08);
+}
+
+.content {
+    flex: 1;
+    padding: 2rem 2.5rem;
+    max-width: 70rem;
+}
+
+h1 {
+    font-family: var(--serif);
+}
+
+h1:focus {
+    outline: none;
+}
+
+#blazor-error-ui {
+    display: none;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    width: 100%;
+    padding: 0.6rem 1.25rem;
+    background: var(--graphite);
+    color: #fff;
+    border-top: 2px solid var(--coral);
+}
+
+#blazor-error-ui a {
+    color: var(--coral);
+}
+
+#blazor-error-ui .dismiss {
+    position: absolute;
+    right: 0.75rem;
+    cursor: pointer;
+}
+
+.blazor-error-boundary {
+    padding: 1rem;
+    background: var(--graphite);
+    color: #fff;
+    border-left: 4px solid var(--coral);
+}
+
+.blazor-error-boundary::after {
+    content: "This part of the page failed to load.";
+}
