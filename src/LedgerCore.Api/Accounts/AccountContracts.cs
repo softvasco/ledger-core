@@ -42,6 +42,18 @@ public sealed record StatementResponse(IReadOnlyList<StatementLineResponse> Line
         page.NextAfterVersion);
 }
 
+public sealed record AccountHistoryEntryResponse(
+    long Version, string Type, DateTimeOffset OccurredAt, decimal? Amount, string? Currency, string? Detail);
+
+/// <summary>Type is the stored event's name. Send <see cref="NextAfter"/> back as after for more; null on the last page.</summary>
+public sealed record AccountHistoryResponse(IReadOnlyList<AccountHistoryEntryResponse> Events, long? NextAfter)
+{
+    public static AccountHistoryResponse From(AccountHistoryPage page) => new(
+        [.. page.Entries.Select(e => new AccountHistoryEntryResponse(
+            e.Version, e.Type, e.OccurredAt, e.Amount?.ForResponse(), e.Amount?.Currency.Code, e.Detail))],
+        page.NextAfterVersion);
+}
+
 public sealed record AccountListResponse(IReadOnlyList<AccountResponse> Accounts, int Page, int PageSize, int Total)
 {
     public static AccountListResponse From(AccountListPage page) => new(
