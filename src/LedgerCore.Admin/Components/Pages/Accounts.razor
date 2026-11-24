@@ -1,0 +1,69 @@
+@page "/accounts"
+@using System.Globalization
+@inject LedgerApiClient Ledger
+
+<PageTitle>Accounts - ledger-core</PageTitle>
+
+<h1>Accounts</h1>
+
+@if (_list is null)
+{
+    <p>Loading accounts...</p>
+}
+else if (_list.Total == 0)
+{
+    <p>No accounts yet. The list fills in once the read model has caught up with the first AccountOpened event.</p>
+}
+else
+{
+    <table class="grid">
+        <thead>
+            <tr>
+                <th>IBAN</th>
+                <th>Currency</th>
+                <th>Status</th>
+                <th class="number">Balance</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var account in _list.Accounts)
+            {
+                <tr>
+                    <td class="mono">@account.Iban</td>
+                    <td>@account.Currency</td>
+                    <td><span class="status status-@account.Status.ToLowerInvariant()">@account.Status</span></td>
+                    <td class="number mono">@account.Balance.ToString(CultureInfo.InvariantCulture)</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <nav class="pager" aria-label="Account pages">
+        @if (_list.Page > 1)
+        {
+            <a href="@PageLink(_list.Page - 1)">Previous</a>
+        }
+        <span>Page @_list.Page of @_list.PageCount, @_list.Total accounts</span>
+        @if (_list.Page < _list.PageCount)
+        {
+            <a href="@PageLink(_list.Page + 1)">Next</a>
+        }
+    </nav>
+}
+
+@code {
+    private const int PageSize = 25;
+
+    private AccountList? _list;
+
+    [SupplyParameterFromQuery]
+    public int? Page { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        // a hand-edited ?page=0 shows the first page rather than a 400 from the API
+        _list = await Ledger.ListAccountsAsync(Math.Max(1, Page ?? 1), PageSize);
+    }
+
+    private static string PageLink(int page) => $"accounts?page={page}";
+}
