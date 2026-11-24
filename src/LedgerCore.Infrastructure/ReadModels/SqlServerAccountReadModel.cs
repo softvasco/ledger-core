@@ -10,7 +10,7 @@ namespace LedgerCore.Infrastructure.ReadModels;
 
 /// <summary>Balances and statement lines in SQL Server, with the checkpoint beside them.</summary>
 public sealed class SqlServerAccountReadModel :
-    ICheckpointedProjection, IRebuildableProjection, IAccountSummaries, IAccountStatements
+    ICheckpointedProjection, IRebuildableProjection, IAccountSummaries, IAccountStatements, IAccountList
 {
     private const string DepositKind = "deposit";
     private const string WithdrawalKind = "withdrawal";
@@ -131,6 +131,23 @@ public sealed class SqlServerAccountReadModel :
 
         var currency = Currency.FromCode(currencyCode);
         return StatementPaging.Page([.. rows.Select(r => ToLine(r, currency))], query.PageSize);
+    }
+
+    // offset paging here: an admin list wants page numbers and a total, and accounts are few next to statement lines
+    public async Task<AccountListPage> ListAsync(ListAccounts query, CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(query);
+
+        await using var db = new ReadModelContext(_options);
+        var total = await db.Balances.CountAsync(cancellationToken).ConfigureAwait(false);
+        var rows = await db.Balances.AsNoTracking()
+            .OrderBy(b => b.Iban)
+            .ThenBy(b => b.AccountId)
+            .Skip(query.Skip)
+            .Take(query.PageSize)
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+        return new AccountListPage([.. rows.Select(ToSummary)], query.Page, query.PageSize, total);
     }
 
     private static async Task ApplyToAccountAsync(
