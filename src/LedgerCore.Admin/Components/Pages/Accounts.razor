@@ -29,7 +29,7 @@ else
             @foreach (var account in _list.Accounts)
             {
                 <tr>
-                    <td class="mono">@account.Iban</td>
+                    <td class="mono"><a href="accounts/@account.Id">@account.Iban</a></td>
                     <td>@account.Currency</td>
                     <td><span class="status status-@account.Status.ToLowerInvariant()">@account.Status</span></td>
                     <td class="number mono">@account.Balance.ToString(CultureInfo.InvariantCulture)</td>
