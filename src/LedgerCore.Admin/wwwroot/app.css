@@ -169,3 +169,21 @@ h1:focus {
 .pager a {
     color: var(--ink);
 }
+
+.facts {
+    display: grid;
+    grid-template-columns: max-content 1fr;
+    gap: 0.35rem 1.5rem;
+    margin: 0 0 2rem;
+}
+
+.facts dt {
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.facts dd {
+    margin: 0;
+}

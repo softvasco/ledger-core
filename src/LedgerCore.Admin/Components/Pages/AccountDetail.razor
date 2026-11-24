@@ -1,0 +1,105 @@
+@page "/accounts/{Id:guid}"
+@using System.Globalization
+@inject LedgerApiClient Ledger
+
+<PageTitle>Account - ledger-core</PageTitle>
+
+<p><a href="accounts">Back to accounts</a></p>
+
+@if (_history is null)
+{
+    <h1>Account not found</h1>
+    <p>No events were ever stored for this account id.</p>
+}
+else
+{
+    <h1 class="mono">@(_account?.Iban ?? Id.ToString())</h1>
+    @if (_account is null)
+    {
+        <p>The read model hasn't caught up with this account yet, so there is no balance to show. The events below come straight from the event store.</p>
+    }
+    else
+    {
+        <dl class="facts">
+            <dt>Status</dt>
+            <dd><span class="status status-@_account.Status.ToLowerInvariant()">@_account.Status</span></dd>
+            <dt>Balance</dt>
+            <dd class="mono">@_account.Currency @_account.Balance.ToString(CultureInfo.InvariantCulture)</dd>
+            <dt>Version</dt>
+            <dd class="mono">@_account.Version</dd>
+        </dl>
+    }
+
+    <h2>Events</h2>
+    <table class="grid">
+        <thead>
+            <tr>
+                <th class="number">#</th>
+                <th>When (UTC)</th>
+                <th>Event</th>
+                <th class="number">Amount</th>
+                <th>Detail</th>
+            </tr>
+        </thead>
+        <tbody>
+            @foreach (var e in _history.Events)
+            {
+                <tr>
+                    <td class="number mono">@e.Version</td>
+                    <td class="mono">@e.OccurredAt.UtcDateTime.ToString("yyyy-MM-dd HH:mm:ss", CultureInfo.InvariantCulture)</td>
+                    <td>@Label(e.Type)</td>
+                    <td class="number mono">@Amount(e)</td>
+                    <td>@e.Detail</td>
+                </tr>
+            }
+        </tbody>
+    </table>
+
+    <nav class="pager" aria-label="Event pages">
+        @if (After > 0)
+        {
+            <a href="accounts/@Id">First events</a>
+        }
+        @if (_history.NextAfter is { } next)
+        {
+            <a href="accounts/@Id?after=@next">Later events</a>
+        }
+    </nav>
+}
+
+@code {
+    private const int PageSize = 50;
+
+    private AccountRow? _account;
+    private AccountHistory? _history;
+
+    [Parameter]
+    public Guid Id { get; set; }
+
+    [SupplyParameterFromQuery]
+    public long? After { get; set; }
+
+    protected override async Task OnParametersSetAsync()
+    {
+        var after = Math.Max(0, After ?? 0);
+        var account = Ledger.GetAccountAsync(Id);
+        var history = Ledger.GetHistoryAsync(Id, after, PageSize);
+        _account = await account;
+        _history = await history;
+    }
+
+    private static string Label(string type) => type switch
+    {
+        "AccountOpened" => "Opened",
+        "MoneyDeposited" => "Deposit",
+        "MoneyWithdrawn" => "Withdrawal",
+        "AccountFrozen" => "Frozen",
+        "AccountUnfrozen" => "Unfrozen",
+        "AccountClosed" => "Closed",
+        _ => type,
+    };
+
+    private static string Amount(AccountEvent e) => e.Amount is { } amount
+        ? $"{(e.Type == "MoneyWithdrawn" ? "-" : "")}{amount.ToString(CultureInfo.InvariantCulture)} {e.Currency}"
+        : "";
+}

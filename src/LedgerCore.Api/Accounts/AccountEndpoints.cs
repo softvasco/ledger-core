@@ -40,6 +40,12 @@ internal static class AccountEndpoints
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status404NotFound);
 
+        accounts.MapGet("/{id}/history", GetHistoryAsync)
+            .WithName("GetAccountHistory")
+            .WithSummary("Read every event stored for an account, oldest first, a page at a time")
+            .ProducesValidationProblem()
+            .ProducesProblem(StatusCodes.Status404NotFound);
+
         accounts.MapPost("/{id}/deposits", DepositAsync)
             .WithName("Deposit")
             .WithSummary("Credit an account")
@@ -149,6 +155,33 @@ internal static class AccountEndpoints
 
         var page = await queries.DispatchAsync(new GetStatement(id, after, pageSize, from, to), cancellationToken);
         return page is null ? AccountErrors.NotFound(id).ToProblem() : TypedResults.Ok(StatementResponse.From(page));
+    }
+
+    private static async Task<Results<Ok<AccountHistoryResponse>, ValidationProblem, ProblemHttpResult>> GetHistoryAsync(
+        AccountId id,
+        IQueryDispatcher queries,
+        CancellationToken cancellationToken,
+        long after = 0,
+        int pageSize = GetAccountHistory.DefaultPageSize)
+    {
+        var errors = new Dictionary<string, string[]>();
+        if (after < 0)
+        {
+            errors["after"] = ["Use the nextAfter value from the previous page, or leave it out."];
+        }
+
+        if (pageSize is < 1 or > GetAccountHistory.MaxPageSize)
+        {
+            errors["pageSize"] = [$"Between 1 and {GetAccountHistory.MaxPageSize}."];
+        }
+
+        if (errors.Count > 0)
+        {
+            return TypedResults.ValidationProblem(errors);
+        }
+
+        var page = await queries.DispatchAsync(new GetAccountHistory(id, after, pageSize), cancellationToken);
+        return page is null ? AccountErrors.NotFound(id).ToProblem() : TypedResults.Ok(AccountHistoryResponse.From(page));
     }
 
     private static async Task<Results<Ok<BalanceResponse>, ValidationProblem, ProblemHttpResult>> DepositAsync(

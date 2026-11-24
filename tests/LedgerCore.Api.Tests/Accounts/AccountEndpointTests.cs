@@ -180,6 +180,48 @@ public sealed class AccountEndpointTests : IAsyncDisposable
     }
 
     [Fact]
+    public async Task The_history_lists_stored_events_before_the_read_model_catches_up()
+    {
+        var id = await OpenAsync();
+        await PostAmountAsync(id, "deposits", 100m);
+        await PostAmountAsync(id, "withdrawals", 30m);
+
+        var first = await _client.GetFromJsonAsync<AccountHistoryResponse>($"/accounts/{id}/history?pageSize=2", Token);
+        var rest = await _client.GetFromJsonAsync<AccountHistoryResponse>(
+            $"/accounts/{id}/history?pageSize=2&after={first!.NextAfter}", Token);
+
+        Assert.Equal(
+            [("AccountOpened", null, "PT50 0002 0123 1234 5678 9015 4 in EUR"), ("MoneyDeposited", 100m, null)],
+            first.Events.Select(e => (e.Type, e.Amount, e.Detail)));
+        Assert.Equal([(3L, "MoneyWithdrawn", 30m, "EUR")], rest!.Events.Select(e => (e.Version, e.Type, e.Amount, e.Currency)));
+        Assert.Null(rest.NextAfter);
+    }
+
+    [Theory]
+    [InlineData("pageSize=0", "pageSize")]
+    [InlineData("pageSize=201", "pageSize")]
+    [InlineData("after=-1", "after")]
+    public async Task A_history_query_out_of_range_is_400_naming_the_parameter(string query, string parameter)
+    {
+        var id = await OpenAsync();
+
+        var response = await _client.GetAsync($"/accounts/{id}/history?{query}", Token);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>(Token);
+        Assert.Contains(parameter, problem!.Errors.Keys);
+    }
+
+    [Fact]
+    public async Task The_history_of_an_unknown_account_is_404()
+    {
+        var response = await _client.GetAsync($"/accounts/{Guid.CreateVersion7()}/history", Token);
+
+        Assert.Equal(HttpStatusCode.NotFound, response.StatusCode);
+        Assert.Equal("account.not_found", (await ReadProblemAsync(response)).Extensions["code"]?.ToString());
+    }
+
+    [Fact]
     public async Task The_account_list_pages_by_iban_with_the_total()
     {
         var netherlands = await OpenAsync("NL91 ABNA 0417 1643 00");

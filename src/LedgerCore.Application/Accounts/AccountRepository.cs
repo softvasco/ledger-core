@@ -51,7 +51,7 @@ public sealed partial class AccountRepository(
         }
     }
 
-    private static StreamId StreamFor(AccountId id) => StreamId.For(Category, id.Value);
+    internal static StreamId StreamFor(AccountId id) => StreamId.For(Category, id.Value);
 
     // the events are stored by now, so a failed snapshot must not look like a failed save
     private async Task TrySnapshotAsync(StreamId stream, Account account, CancellationToken cancellationToken)
