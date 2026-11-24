@@ -179,9 +179,38 @@ public sealed class AccountEndpointTests : IAsyncDisposable
         Assert.Equal("account.not_found", (await ReadProblemAsync(response)).Extensions["code"]?.ToString());
     }
 
-    private async Task<Guid> OpenAsync()
+    [Fact]
+    public async Task The_account_list_pages_by_iban_with_the_total()
     {
-        var response = await _client.PostAsJsonAsync("/accounts", new OpenAccountRequest(SomeIban, "EUR"), Token);
+        var netherlands = await OpenAsync("NL91 ABNA 0417 1643 00");
+        var belgium = await OpenAsync("BE68 5390 0754 7034");
+        var germany = await OpenAsync("DE89 3704 0044 0532 0130 00");
+        await _factory.Services.GetRequiredService<ProjectionRunner>().CatchUpAsync(Token);
+
+        var first = await _client.GetFromJsonAsync<AccountListResponse>("/accounts?pageSize=2", Token);
+        var second = await _client.GetFromJsonAsync<AccountListResponse>("/accounts?page=2&pageSize=2", Token);
+
+        Assert.Equal([belgium, germany], first!.Accounts.Select(a => a.Id));
+        Assert.Equal([netherlands], second!.Accounts.Select(a => a.Id));
+        Assert.Equal((3, 2, 2), (second.Total, second.Page, second.PageSize));
+    }
+
+    [Theory]
+    [InlineData("page=0", "page")]
+    [InlineData("pageSize=0", "pageSize")]
+    [InlineData("pageSize=101", "pageSize")]
+    public async Task An_account_list_query_out_of_range_is_400_naming_the_parameter(string query, string parameter)
+    {
+        var response = await _client.GetAsync($"/accounts?{query}", Token);
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        var problem = await response.Content.ReadFromJsonAsync<ValidationProblemDetails>(Token);
+        Assert.Contains(parameter, problem!.Errors.Keys);
+    }
+
+    private async Task<Guid> OpenAsync(string iban = SomeIban)
+    {
+        var response = await _client.PostAsJsonAsync("/accounts", new OpenAccountRequest(iban, "EUR"), Token);
         response.EnsureSuccessStatusCode();
         return (await response.Content.ReadFromJsonAsync<AccountOpenedResponse>(Token))!.Id;
     }
