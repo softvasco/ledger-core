@@ -41,3 +41,9 @@ public sealed record StatementResponse(IReadOnlyList<StatementLineResponse> Line
             l.OccurredAt))],
         page.NextAfterVersion);
 }
+
+public sealed record AccountListResponse(IReadOnlyList<AccountResponse> Accounts, int Page, int PageSize, int Total)
+{
+    public static AccountListResponse From(AccountListPage page) => new(
+        [.. page.Accounts.Select(AccountResponse.From)], page.Page, page.PageSize, page.Total);
+}

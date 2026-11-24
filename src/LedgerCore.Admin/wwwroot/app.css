@@ -116,3 +116,56 @@ h1:focus {
 .blazor-error-boundary::after {
     content: "This part of the page failed to load.";
 }
+
+.grid {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.95rem;
+}
+
+.grid th {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 2px solid var(--coral);
+    font-family: var(--mono);
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-align: left;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+}
+
+.grid td {
+    padding: 0.5rem 0.75rem;
+    border-bottom: 1px solid #e6e4df;
+}
+
+.grid .number {
+    text-align: right;
+}
+
+.mono {
+    font-family: var(--mono);
+}
+
+.status {
+    font-family: var(--mono);
+    font-size: 0.8rem;
+}
+
+.status-frozen,
+.status-closed {
+    color: var(--coral);
+}
+
+.pager {
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    margin-top: 1rem;
+    font-family: var(--mono);
+    font-size: 0.85rem;
+}
+
+.pager a {
+    color: var(--ink);
+}

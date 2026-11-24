@@ -31,6 +31,8 @@ Done:
 - Read models fed by a projection runner that follows the store's global position, with a checkpoint per projection ([ADR-0012](docs/adr/0012-catch-up-projections-with-checkpoints.md)). On SQL Server, balances and statement lines are tables written with EF Core, each event committing its rows and the checkpoint together ([ADR-0013](docs/adr/0013-ef-core-for-the-sql-server-read-model.md)).
 - Rebuilding a read model without a restart: `POST /admin/projections/{name}/rebuild` empties it and replays the store in the background, and a GET on the same route shows how far it has got. Off unless `Admin:Enabled` is true ([ADR-0015](docs/adr/0015-rebuilding-a-projection-in-place.md)).
 - `GET /accounts/{id}/statement`: deposits and withdrawals, oldest first, with the balance after each. The cursor is the stream version, so a deposit that lands between two pages doesn't shift the next one.
+- `GET /accounts?page=2&pageSize=25`: accounts ordered by IBAN with the total. This one uses page numbers instead of a cursor, because the back office shows "page 2 of 7" and there are far fewer accounts than statement lines.
+- A Blazor back office (`src/LedgerCore.Admin`) that reads everything through the API. So far it lists the accounts, a page at a time.
 - Account endpoints on a minimal API. Every error is an RFC 9457 problem with a stable `code` to branch on, for example a 409 with `account.insufficient_funds` when a withdrawal is more than the balance ([ADR-0008](docs/adr/0008-problem-details-for-every-error.md)).
 - An OpenAPI 3.1 document at `/openapi/v1.json` that lists every status an endpoint can answer, and a Scalar UI at `/scalar` in development.
 - `Idempotency-Key` on every POST: a retry gets the stored response back, the same key with another body is a 422 ([ADR-0009](docs/adr/0009-idempotency-keys-for-post.md)). It is an endpoint filter, so callers that run the endpoint in-process get it too ([ADR-0010](docs/adr/0010-idempotency-as-an-endpoint-filter.md)).
@@ -41,7 +43,8 @@ Done:
 
 Coming next:
 - Transactional outbox (built on outbox-kit), then Azure Service Bus.
-- Outbox lag next to the other metrics once events go out, and a Blazor back office.
+- Outbox lag next to the other metrics once events go out.
+- In the back office: an account's event timeline, sign-in with roles, and component tests.
 
 ## Architecture
 

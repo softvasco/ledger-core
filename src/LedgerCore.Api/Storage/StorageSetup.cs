@@ -79,6 +79,7 @@ internal static class StorageSetup
         services.AddSingleton(_ => new SqlServerAccountReadModel(connectionString));
         services.AddSingleton<IAccountSummaries>(sp => sp.GetRequiredService<SqlServerAccountReadModel>());
         services.AddSingleton<IAccountStatements>(sp => sp.GetRequiredService<SqlServerAccountReadModel>());
+        services.AddSingleton<IAccountList>(sp => sp.GetRequiredService<SqlServerAccountReadModel>());
         services.AddSingleton<IProjection>(sp => sp.GetRequiredService<SqlServerAccountReadModel>());
 
         // one SchemaSetup only: AddHostedService drops a second registration of the same type
@@ -94,6 +95,7 @@ internal static class StorageSetup
         services.AddSingleton<InMemoryAccountSummaries>();
         services.AddSingleton<IAccountSummaries>(sp => sp.GetRequiredService<InMemoryAccountSummaries>());
         services.AddSingleton<IAccountStatements>(sp => sp.GetRequiredService<InMemoryAccountSummaries>());
+        services.AddSingleton<IAccountList>(sp => sp.GetRequiredService<InMemoryAccountSummaries>());
         services.AddSingleton<IProjection>(sp => sp.GetRequiredService<InMemoryAccountSummaries>());
     }
 

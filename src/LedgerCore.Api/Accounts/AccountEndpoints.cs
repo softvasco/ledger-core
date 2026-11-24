@@ -22,6 +22,11 @@ internal static class AccountEndpoints
             .WithSummary("Open an account in one currency")
             .ProducesProblem(StatusCodes.Status409Conflict);
 
+        accounts.MapGet("/", ListAsync)
+            .WithName("ListAccounts")
+            .WithSummary("List accounts ordered by IBAN, a numbered page at a time, with the total")
+            .ProducesValidationProblem();
+
         // a malformed id fails route binding, which answers 400 before the handler runs
         accounts.MapGet("/{id}", GetAsync)
             .WithName(GetAccountRoute)
@@ -84,6 +89,32 @@ internal static class AccountEndpoints
     {
         var summary = await queries.DispatchAsync(new GetAccount(id), cancellationToken);
         return summary is null ? AccountErrors.NotFound(id).ToProblem() : TypedResults.Ok(AccountResponse.From(summary));
+    }
+
+    private static async Task<Results<Ok<AccountListResponse>, ValidationProblem>> ListAsync(
+        IQueryDispatcher queries,
+        CancellationToken cancellationToken,
+        int page = 1,
+        int pageSize = ListAccounts.DefaultPageSize)
+    {
+        var errors = new Dictionary<string, string[]>();
+        if (page < 1)
+        {
+            errors["page"] = ["Pages start at 1."];
+        }
+
+        if (pageSize is < 1 or > ListAccounts.MaxPageSize)
+        {
+            errors["pageSize"] = [$"Between 1 and {ListAccounts.MaxPageSize}."];
+        }
+
+        if (errors.Count > 0)
+        {
+            return TypedResults.ValidationProblem(errors);
+        }
+
+        var accounts = await queries.DispatchAsync(new ListAccounts(page, pageSize), cancellationToken);
+        return TypedResults.Ok(AccountListResponse.From(accounts));
     }
 
     private static async Task<Results<Ok<StatementResponse>, ValidationProblem, ProblemHttpResult>> GetStatementAsync(
