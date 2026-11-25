@@ -12,7 +12,7 @@ public sealed class AccountDetailPageTests : BunitContext
     private readonly FakeLedgerApi _api = new();
     private readonly Guid _id = Guid.NewGuid();
 
-    public AccountDetailPageTests() => Services.AddSingleton(_api.Client());
+    public AccountDetailPageTests() => _api.AddTo(Services);
 
     [Fact]
     public void An_id_with_no_events_is_reported_as_not_found()

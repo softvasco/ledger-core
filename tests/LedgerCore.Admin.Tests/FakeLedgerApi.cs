@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace LedgerCore.Admin.Tests;
 
@@ -16,7 +17,11 @@ internal sealed class FakeLedgerApi : HttpMessageHandler
         return this;
     }
 
-    public LedgerApiClient Client() => new(new HttpClient(this) { BaseAddress = new Uri("http://ledger.test/") });
+    // the container creates the HttpClient, so it disposes it with the test context
+    public void AddTo(IServiceCollection services) =>
+        services
+            .AddSingleton(_ => new HttpClient(this, disposeHandler: false) { BaseAddress = new Uri("http://ledger.test/") })
+            .AddSingleton<LedgerApiClient>();
 
     protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {

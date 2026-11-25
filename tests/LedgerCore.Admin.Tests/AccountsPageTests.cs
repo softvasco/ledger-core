@@ -9,7 +9,7 @@ public sealed class AccountsPageTests : BunitContext
 {
     private readonly FakeLedgerApi _api = new();
 
-    public AccountsPageTests() => Services.AddSingleton(_api.Client());
+    public AccountsPageTests() => _api.AddTo(Services);
 
     [Fact]
     public void Each_account_is_a_row_whose_iban_links_to_its_page()
