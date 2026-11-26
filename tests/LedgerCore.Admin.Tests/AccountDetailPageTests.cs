@@ -24,6 +24,31 @@ public sealed class AccountDetailPageTests : BunitContext
     }
 
     [Fact]
+    public void An_unknown_id_tells_the_router_so_the_response_is_a_404()
+    {
+        var notFound = 0;
+        Services.GetRequiredService<NavigationManager>().OnNotFound += (_, _) => notFound++;
+
+        var page = Render<AccountDetail>(p => p.Add(x => x.Id, _id));
+
+        page.WaitForAssertion(() => Assert.Equal(1, notFound));
+    }
+
+    [Fact]
+    public void A_known_id_is_not_reported_to_the_router()
+    {
+        var notFound = 0;
+        Services.GetRequiredService<NavigationManager>().OnNotFound += (_, _) => notFound++;
+        _api.Returns($"/accounts/{_id}/history?after=0&pageSize=50", new AccountHistory(
+            [new AccountEvent(1, "AccountOpened", Opened, null, null, null)], null));
+
+        var page = Render<AccountDetail>(p => p.Add(x => x.Id, _id));
+
+        page.WaitForAssertion(() => Assert.Single(page.FindAll("tbody tr")));
+        Assert.Equal(0, notFound);
+    }
+
+    [Fact]
     public void The_timeline_lists_every_event_with_withdrawals_shown_as_negative()
     {
         _api.Returns($"/accounts/{_id}", new AccountRow(_id, "PT50000201231234567890154", "EUR", "Open", 100.25m, 3))

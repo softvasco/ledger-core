@@ -1,6 +1,7 @@
 @page "/accounts/{Id:guid}"
 @using System.Globalization
 @inject LedgerApiClient Ledger
+@inject NavigationManager Navigation
 
 <PageTitle>Account - ledger-core</PageTitle>
 
@@ -86,6 +87,12 @@ else
         var history = Ledger.GetHistoryAsync(Id, after, PageSize);
         _account = await account;
         _history = await history;
+
+        // without this the page says not found but the response is a 200
+        if (_history is null)
+        {
+            Navigation.NotFound();
+        }
     }
 
     private static string Label(string type) => type switch
