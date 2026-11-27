@@ -14,6 +14,10 @@
     <PackageReference Include="Aspire.Hosting.Keycloak" />
     <PackageReference Include="Aspire.Hosting.PostgreSQL" />
     <PackageReference Include="Aspire.Hosting.SqlServer" />
+    <PackageReference Include="Microsoft.Data.SqlClient" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" VersionOverride="11.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Diagnostics" VersionOverride="11.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging" VersionOverride="11.0.0" />
   </ItemGroup>
 
   <ItemGroup>
