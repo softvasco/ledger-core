@@ -57,8 +57,10 @@ public static class ServiceDefaultsExtensions
     {
         ArgumentNullException.ThrowIfNull(app);
 
-        app.MapHealthChecks(HealthPath);
-        app.MapHealthChecks(AlivePath, new HealthCheckOptions { Predicate = check => check.Tags.Contains(LiveTag) });
+        // probes come from the orchestrator, which never signs in
+        app.MapHealthChecks(HealthPath).AllowAnonymous();
+        app.MapHealthChecks(AlivePath, new HealthCheckOptions { Predicate = check => check.Tags.Contains(LiveTag) })
+            .AllowAnonymous();
         return app;
     }
 

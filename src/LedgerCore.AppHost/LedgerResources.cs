@@ -3,12 +3,14 @@ using Aspire.Hosting.ApplicationModel;
 
 namespace LedgerCore.AppHost;
 
-/// <summary>The API, its event store, the Service Bus emulator and the back office as Aspire resources.</summary>
+/// <summary>The API, its stores, the Service Bus emulator, Keycloak and the back office.</summary>
 public static class LedgerResources
 {
     public const string ProviderSetting = "Storage:Provider";
     public const string SqlServer = "SqlServer";
     public const string PostgreSql = "PostgreSql";
+    public const string Realm = "ledger";
+    public const string AdminClientId = "ledger-admin";
 
     public static IResourceBuilder<ProjectResource> AddLedger(this IDistributedApplicationBuilder builder)
     {
@@ -41,9 +43,17 @@ public static class LedgerResources
     {
         ArgumentNullException.ThrowIfNull(builder);
 
+        // local realm: a viewer, an operator and a user with no role; the admin only gets the issuer
+        var keycloak = builder.AddKeycloak("keycloak")
+            .WithRealmImport("./keycloak");
+
         return builder.AddProject<Projects.LedgerCore_Admin>("admin")
             .WithReference(api)
             .WaitFor(api)
+            .WaitFor(keycloak)
+            .WithEnvironment("Oidc__Authority", ReferenceExpression.Create($"{keycloak.GetEndpoint("http")}/realms/{Realm}"))
+            .WithEnvironment("Oidc__ClientId", AdminClientId)
+            .WithEnvironment("Oidc__RequireHttpsMetadata", "false")
             .WithExternalHttpEndpoints();
     }
 }

@@ -1,6 +1,7 @@
 using Aspire.Hosting;
 using Aspire.Hosting.ApplicationModel;
 using Aspire.Hosting.Azure;
+using System.Text.Json;
 using Aspire.Hosting.Testing;
 using Microsoft.Extensions.Logging.Abstractions;
 
@@ -80,8 +81,39 @@ public class LedgerResourcesTests
 
         var admin = builder.Resources.OfType<ProjectResource>().Single(r => r.Name == "admin");
 
-        Assert.Equal(["api"], admin.Annotations.OfType<WaitAnnotation>().Select(w => w.Resource.Name));
+        Assert.Contains("api", admin.Annotations.OfType<WaitAnnotation>().Select(w => w.Resource.Name));
         Assert.Null(await Environment(builder, "ConnectionStrings__Ledger", "admin"));
+    }
+
+    [Fact]
+    public async Task The_back_office_signs_in_against_the_local_keycloak_realm()
+    {
+        await using var builder = await DistributedApplicationTestingBuilder.CreateAsync<Projects.LedgerCore_AppHost>(Token);
+
+        var admin = builder.Resources.OfType<ProjectResource>().Single(r => r.Name == "admin");
+
+        Assert.Contains("keycloak", admin.Annotations.OfType<WaitAnnotation>().Select(w => w.Resource.Name));
+        Assert.Equal("{keycloak.bindings.http.url}/realms/ledger", await Environment(builder, "Oidc__Authority", "admin"));
+        Assert.Equal("ledger-admin", await Environment(builder, "Oidc__ClientId", "admin"));
+    }
+
+    [Fact]
+    public async Task The_realm_file_gives_the_admin_client_and_the_roles_the_pages_check()
+    {
+        await using var builder = await DistributedApplicationTestingBuilder.CreateAsync<Projects.LedgerCore_AppHost>(Token);
+        var file = Path.Combine(builder.AppHostDirectory, "keycloak", "ledger-realm.json");
+
+        using var realm = JsonDocument.Parse(await File.ReadAllTextAsync(file, Token));
+
+        var root = realm.RootElement;
+        Assert.Equal(LedgerResources.Realm, root.GetProperty("realm").GetString());
+        var client = root.GetProperty("clients").EnumerateArray().Single();
+        Assert.Equal(LedgerResources.AdminClientId, client.GetProperty("clientId").GetString());
+        Assert.Contains("http://localhost:5175/signin-oidc", client.GetProperty("redirectUris").EnumerateArray().Select(u => u.GetString()));
+        Assert.Contains(client.GetProperty("protocolMappers").EnumerateArray(), m => m.GetProperty("config").GetProperty("claim.name").GetString() == "roles");
+        Assert.Equal(
+            ["ledger-operator", "ledger-viewer"],
+            root.GetProperty("roles").GetProperty("realm").EnumerateArray().Select(r => r.GetProperty("name").GetString()).Order());
     }
 
     private static ProjectResource Api(IDistributedApplicationTestingBuilder builder) =>

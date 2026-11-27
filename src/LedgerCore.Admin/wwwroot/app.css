@@ -70,6 +70,25 @@ body {
     background: rgba(255, 255, 255, 0.08);
 }
 
+.signed-in {
+    margin-top: 2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    color: var(--warm-grey);
+    font-size: 0.85rem;
+}
+
+.signed-in button {
+    align-self: flex-start;
+    background: none;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 4px;
+    color: #fff;
+    padding: 0.25rem 0.6rem;
+    cursor: pointer;
+}
+
 .content {
     flex: 1;
     padding: 2rem 2.5rem;

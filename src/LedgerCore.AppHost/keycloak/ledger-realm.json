@@ -1,0 +1,73 @@
+{
+  "realm": "ledger",
+  "enabled": true,
+  "sslRequired": "none",
+  "registrationAllowed": false,
+  "roles": {
+    "realm": [
+      { "name": "ledger-viewer", "description": "Reads accounts and their history in the back office" },
+      { "name": "ledger-operator", "description": "Everything a viewer does, plus admin actions" }
+    ]
+  },
+  "clients": [
+    {
+      "clientId": "ledger-admin",
+      "name": "ledger-core back office",
+      "enabled": true,
+      "publicClient": true,
+      "standardFlowEnabled": true,
+      "directAccessGrantsEnabled": false,
+      "redirectUris": ["http://localhost:5175/signin-oidc"],
+      "attributes": {
+        "pkce.code.challenge.method": "S256",
+        "post.logout.redirect.uris": "http://localhost:5175/signout-callback-oidc"
+      },
+      "protocolMappers": [
+        {
+          "name": "realm roles as roles",
+          "protocol": "openid-connect",
+          "protocolMapper": "oidc-usermodel-realm-role-mapper",
+          "config": {
+            "claim.name": "roles",
+            "multivalued": "true",
+            "jsonType.label": "String",
+            "id.token.claim": "true",
+            "access.token.claim": "true",
+            "userinfo.token.claim": "true"
+          }
+        }
+      ]
+    }
+  ],
+  "users": [
+    {
+      "username": "viewer",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Local",
+      "lastName": "Viewer",
+      "email": "viewer@ledger.test",
+      "credentials": [{ "type": "password", "value": "viewer", "temporary": false }],
+      "realmRoles": ["ledger-viewer"]
+    },
+    {
+      "username": "operator",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Local",
+      "lastName": "Operator",
+      "email": "operator@ledger.test",
+      "credentials": [{ "type": "password", "value": "operator", "temporary": false }],
+      "realmRoles": ["ledger-operator"]
+    },
+    {
+      "username": "nobody",
+      "enabled": true,
+      "emailVerified": true,
+      "firstName": "Local",
+      "lastName": "Nobody",
+      "email": "nobody@ledger.test",
+      "credentials": [{ "type": "password", "value": "nobody", "temporary": false }]
+    }
+  ]
+}
