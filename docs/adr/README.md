@@ -19,3 +19,4 @@
 | [0015](0015-rebuilding-a-projection-in-place.md) | Rebuilding a projection in place, from inside the API | Accepted |
 | [0016](0016-integration-events-in-their-own-project.md) | Integration events in their own project, versioned by namespace | Accepted |
 | [0017](0017-static-server-rendering-for-the-back-office.md) | Static server rendering for the back office | Accepted |
+| [0018](0018-oidc-sign-in-for-the-back-office.md) | OIDC sign-in for the back office, roles from the token | Accepted |

@@ -33,7 +33,7 @@ Done:
 - `GET /accounts/{id}/statement`: deposits and withdrawals, oldest first, with the balance after each. The cursor is the stream version, so a deposit that lands between two pages doesn't shift the next one.
 - `GET /accounts?page=2&pageSize=25`: accounts ordered by IBAN with the total. This one uses page numbers instead of a cursor, because the back office shows "page 2 of 7" and there are far fewer accounts than statement lines.
 - `GET /accounts/{id}/history`: every event stored for the account, oldest first, with the same version cursor. It reads the event stream itself, not a read model, so an audit view never shows something the projection made up or hasn't reached yet.
-- A Blazor back office (`src/LedgerCore.Admin`) that reads everything through the API: the account list a page at a time, and a page per account with its balance and the event timeline. The pages render statically on the server with paging in the query string ([ADR-0017](docs/adr/0017-static-server-rendering-for-the-back-office.md)), and they have bUnit tests against a fake HTTP handler, so they run without the API.
+- A Blazor back office (`src/LedgerCore.Admin`) that reads everything through the API: the account list a page at a time, and a page per account with its balance and the event timeline. The pages render statically on the server with paging in the query string ([ADR-0017](docs/adr/0017-static-server-rendering-for-the-back-office.md)), and they have bUnit tests against a fake HTTP handler, so they run without the API. Operators sign in through OpenID Connect and the pages check a `roles` claim (`ledger-viewer` or `ledger-operator`), so Keycloak and Entra ID work the same way ([ADR-0018](docs/adr/0018-oidc-sign-in-for-the-back-office.md)).
 - Account endpoints on a minimal API. Every error is an RFC 9457 problem with a stable `code` to branch on, for example a 409 with `account.insufficient_funds` when a withdrawal is more than the balance ([ADR-0008](docs/adr/0008-problem-details-for-every-error.md)).
 - An OpenAPI 3.1 document at `/openapi/v1.json` that lists every status an endpoint can answer, and a Scalar UI at `/scalar` in development.
 - `Idempotency-Key` on every POST: a retry gets the stored response back, the same key with another body is a 422 ([ADR-0009](docs/adr/0009-idempotency-keys-for-post.md)). It is an endpoint filter, so callers that run the endpoint in-process get it too ([ADR-0010](docs/adr/0010-idempotency-as-an-endpoint-filter.md)).
@@ -45,7 +45,7 @@ Done:
 Coming next:
 - Transactional outbox (built on outbox-kit), then Azure Service Bus.
 - Outbox lag next to the other metrics once events go out.
-- In the back office: sign-in with roles.
+- Scopes and roles on the API itself.
 
 ## Architecture
 
@@ -126,7 +126,7 @@ Without a connection string the API keeps everything in memory. Open http://loca
 dotnet run --project src/LedgerCore.AppHost
 ```
 
-The AppHost starts SQL Server, the Service Bus emulator with the `ledger.events` topic and its `audit` subscription, and the API once both are up, and opens the Aspire dashboard with their logs, traces and metrics. The API gets the same `ConnectionStrings:Ledger` and `ConnectionStrings:ServiceBus` it reads without Aspire, so nothing in it knows about the AppHost. Add `--Storage:Provider PostgreSql` to run the event store on PostgreSQL instead. It also starts the Blazor back office (`src/LedgerCore.Admin`), which only talks to the API.
+The AppHost starts SQL Server, the Service Bus emulator with the `ledger.events` topic and its `audit` subscription, and the API once both are up, and opens the Aspire dashboard with their logs, traces and metrics. The API gets the same `ConnectionStrings:Ledger` and `ConnectionStrings:ServiceBus` it reads without Aspire, so nothing in it knows about the AppHost. Add `--Storage:Provider PostgreSql` to run the event store on PostgreSQL instead. It also starts Keycloak with a local `ledger` realm and the Blazor back office (`src/LedgerCore.Admin`), which only talks to the API. Sign in at http://localhost:5175 as `viewer` or `operator` (the password is the user name); `nobody` has no role and lands on the no-access page.
 
 ### With Docker Compose
 
