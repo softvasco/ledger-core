@@ -11,6 +11,8 @@ builder.Services.AddServiceDiscovery();
 builder.Services.AddHttpClient<LedgerApiClient>(client => client.BaseAddress = new Uri("https+http://api"))
     .AddServiceDiscovery();
 
+builder.Services.AddBackOfficeAuthentication(builder.Configuration);
+
 builder.Services.AddRazorComponents()
     .AddInteractiveServerComponents();
 
@@ -23,10 +25,13 @@ if (!app.Environment.IsDevelopment())
 }
 
 app.UseStatusCodePagesWithReExecute("/not-found", createScopeForStatusCodePages: true);
+app.UseAuthentication();
+app.UseAuthorization();
 app.UseAntiforgery();
 
-app.MapStaticAssets();
+app.MapStaticAssets().AllowAnonymous();
 app.MapDefaultEndpoints();
+app.MapSignOut();
 app.MapRazorComponents<App>()
     .AddInteractiveServerRenderMode();
 
